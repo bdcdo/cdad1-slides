@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Loops, uma volta de cada vez</title>
+<!--
+  Animação do loop, aula 8 da CDAD-1 (2026-2). Arquivo único, sem dependência
+  externa: abre com duplo clique em qualquer navegador.
+
+  Uso em sala: setas direita/esquerda ou clique nos botões avançam e voltam
+  um passo; R reinicia; 1, 2 e 3 trocam de cenário. Fonte grande para projeção.
+
+  Os cenários são os dos slides "A lista da aula 6, percorrida" (partes),
+  "Três decisões, uma condição" (decisoes) e, desde 02/09/2026 a pedido do
+  Bruno, "Um exemplo dos autos: a sentença" (sentenca), que é o ENQUANTO com
+  variável de controle. Os dados são os mesmos dos slides, caractere por
+  caractere, para que a turma reconheça a lista.
+
+  No cenário do ENQUANTO a memória mostra duas variáveis: a de controle
+  (achou_sentenca), que nasce antes do loop e é lida no cabeçalho a cada
+  volta, e a peça da vez. A quarta peça nunca é tocada, e é isso que o último
+  passo aponta.
+
+  Cada passo destaca a linha do pseudocódigo em execução, o item da lista que
+  a volta está lendo, o valor atual da variável de iteração e o que sai. O
+  destaque é por cor E por borda, para não depender só da cor.
+
+  O último passo mostra a variável de iteração guardando o último item. É de
+  propósito: o deck não diz que ela "deixa de existir" fora do loop, porque em
+  Python ela continua existindo com o último valor.
+-->
+<style>
+  :root {
+    --preto: #1a1a1a; --cinza: #5a5a5a; --caixa: #f0f0f0; --borda: #bdbdbd;
+    --vermelho: #c8102e; --atual: #fff3c4; --atual-borda: #b8860b;
+    --verde: #1b6b2f; --branco: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--branco); color: var(--preto);
+         font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 22px; }
+  header { display: flex; align-items: center; gap: 1rem; padding: 0.8rem 1.6rem;
+           border-bottom: 3px solid var(--vermelho); }
+  header h1 { font-size: 1.3rem; margin: 0; flex: 1; }
+  header button, footer button { font-size: 1rem; padding: 0.4rem 0.9rem; border: 2px solid var(--preto);
+           background: var(--branco); color: var(--preto); border-radius: 6px; cursor: pointer; }
+  header button[aria-pressed="true"] { background: var(--preto); color: var(--branco); }
+  main { display: grid; grid-template-columns: 1.15fr 1fr; gap: 1.6rem; padding: 1.2rem 1.6rem; }
+  main > section, main > div { min-width: 0; }
+  section h2 { font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cinza); margin: 0 0 0.5rem; }
+  pre { margin: 0; font-family: "JetBrains Mono", "Fira Mono", Consolas, monospace; font-size: 1.05rem; line-height: 1.5;
+        background: var(--caixa); border-radius: 8px; padding: 0.8rem 1rem; overflow-x: auto; }
+  pre .l { display: block; padding: 0 0.4rem; border-left: 6px solid transparent; white-space: pre; }
+  pre .l.atual { background: var(--atual); border-left-color: var(--atual-borda); font-weight: 700; }
+  .memoria { display: flex; flex-direction: column; gap: 1rem; }
+  .lista { background: var(--caixa); border-radius: 8px; padding: 0.6rem 0.8rem; }
+  .lista .nome { font-family: monospace; font-weight: 700; margin-bottom: 0.4rem; }
+  .item { font-family: monospace; font-size: 0.95rem; padding: 0.35rem 0.6rem; margin: 0.25rem 0;
+          border: 2px solid var(--borda); border-radius: 6px; background: var(--branco); }
+  .item.atual { border-color: var(--atual-borda); background: var(--atual); font-weight: 700; }
+  .item.feito { color: var(--cinza); }
+  .var { display: flex; align-items: baseline; gap: 0.8rem; background: var(--caixa); border-radius: 8px; padding: 0.7rem 0.9rem; }
+  .var .nome { font-family: monospace; font-weight: 700; }
+  .var .valor { font-family: monospace; font-size: 0.95rem; flex: 1; min-height: 1.4em; }
+  .var .valor.vazio { color: var(--cinza); font-style: italic; }
+  .var.atual { outline: 3px solid var(--atual-borda); }
+  .saida { background: var(--caixa); border-radius: 8px; padding: 0.7rem 0.9rem; min-height: 5.5rem; }
+  .saida div { font-family: monospace; font-size: 0.95rem; }
+  .saida .nova { color: var(--verde); font-weight: 700; }
+  .narracao { grid-column: 1 / -1; font-size: 1.15rem; padding: 0.8rem 1rem; border-left: 6px solid var(--vermelho); background: var(--branco); min-height: 4rem; }
+  footer { display: flex; align-items: center; gap: 0.8rem; padding: 0.6rem 1.6rem 1.2rem; }
+  footer .passo { color: var(--cinza); font-size: 1rem; margin-left: auto; }
+  kbd { font-family: monospace; border: 1px solid var(--borda); border-radius: 4px; padding: 0 0.3rem; font-size: 0.85em; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Loops, uma volta de cada vez</h1>
+  <button id="c1" aria-pressed="true">1. partes</button>
+  <button id="c2" aria-pressed="false">2. decisoes</button>
+  <button id="c3" aria-pressed="false">3. enquanto</button>
+</header>
+<main>
+  <section>
+    <h2>Pseudocódigo</h2>
+    <pre id="codigo"></pre>
+  </section>
+  <section class="memoria">
+    <h2>Memória do robô</h2>
+    <div class="lista"><div class="nome" id="lista-nome"></div><div id="itens"></div></div>
+    <div class="var" id="ctrl" hidden><span class="nome" id="ctrl-nome"></span><span class="valor vazio" id="ctrl-valor"></span></div>
+    <div class="var" id="var"><span class="nome" id="var-nome"></span><span class="valor vazio" id="var-valor"></span></div>
+    <div class="saida"><h2>O que sai</h2><div id="saida"></div></div>
+  </section>
+  <div class="narracao" id="narracao"></div>
+</main>
+<footer>
+  <button id="ant">← voltar</button>
+  <button id="prox">avançar →</button>
+  <button id="rei">reiniciar (R)</button>
+  <span class="passo" id="passo"></span>
+</footer>
+<script>
+(function () {
+  "use strict";
+
+  // Cada cenário declara o código (uma entrada por linha), a lista e a
+  // função que, dado o item, diz se a condição vale e o que sai.
+  const CENARIOS = {
+    partes: {
+      listaNome: "partes",
+      varNome: "parte",
+      codigo: [
+        'partes = [',
+        '  {"nome": "Ana", "papel": "AUTORA"},',
+        '  {"nome": "Bruno", "papel": "RÉU"}',
+        ']',
+        '',
+        'PARA CADA parte EM partes:',
+        '    escrever o nome e o papel de parte',
+      ],
+      linhaLoop: 5, linhaCorpo: [6],
+      itens: [
+        { texto: '{"nome": "Ana", "papel": "AUTORA"}', saida: 'Ana, AUTORA' },
+        { texto: '{"nome": "Bruno", "papel": "RÉU"}', saida: 'Bruno, RÉU' },
+      ],
+    },
+    decisoes: {
+      listaNome: "decisoes",
+      varNome: "decisao",
+      codigo: [
+        'decisoes = [',
+        '  {"numero_processo": "0000000-00.2026.8.26.0100", "data_sentenca": 01/09/2026, "data_transito": NULO},',
+        '  {"numero_processo": "0000000-01.2023.8.26.0100", "data_sentenca": 15/03/2023, "data_transito": 30/04/2023},',
+        '  {"numero_processo": "0000000-02.2024.8.26.0100", "data_sentenca": 10/06/2024, "data_transito": NULO}',
+        ']',
+        '',
+        'PARA CADA decisao EM decisoes:',
+        '    escrever "checando " + decisao["numero_processo"]',
+        '    SE decisao["data_transito"] == NULO',
+        '     E decisao["data_sentenca"] < 01/09/2024 ENTÃO',
+        '        revisar decisao',
+      ],
+      linhaLoop: 6, linhaSempre: 7, linhaCond: [8, 9], linhaEntao: 10,
+      itens: [
+        { texto: '{"numero_processo": "…-00.2026…", "data_sentenca": 01/09/2026, "data_transito": NULO}',
+          checando: 'checando …-00.2026…', cond: false, porque: 'trânsito é NULO, mas a sentença (01/09/2026) não é anterior a 01/09/2024: FALSO. Não revisa.' },
+        { texto: '{"numero_processo": "…-01.2023…", "data_sentenca": 15/03/2023, "data_transito": 30/04/2023}',
+          checando: 'checando …-01.2023…', cond: false, porque: 'transitou em 30/04/2023, então a primeira metade já é FALSO. Não revisa.' },
+        { texto: '{"numero_processo": "…-02.2024…", "data_sentenca": 10/06/2024, "data_transito": NULO}',
+          checando: 'checando …-02.2024…', cond: true, porque: 'trânsito NULO e sentença de 10/06/2024, antes do corte: VERDADEIRO. Revisa.' },
+      ],
+    },
+    sentenca: {
+      enquanto: true,
+      listaNome: "pecas",
+      varNome: "peca",
+      ctrlNome: "achou_sentenca",
+      codigo: [
+        'pecas = ["PETIÇÃO INICIAL", "CONTESTAÇÃO", "SENTENÇA", "APELAÇÃO"]',
+        'achou_sentenca = FALSO',
+        '',
+        'ENQUANTO NÃO achou_sentenca:',
+        '    peca = a próxima peça dos autos',
+        '    escrever "olhando " + peca',
+        '    SE peca == "SENTENÇA" ENTÃO',
+        '        achou_sentenca = VERDADEIRO',
+      ],
+      itens: [
+        { texto: '"PETIÇÃO INICIAL"' }, { texto: '"CONTESTAÇÃO"' },
+        { texto: '"SENTENÇA"' }, { texto: '"APELAÇÃO"' },
+      ],
+    },
+  };
+
+  // Sequência do ENQUANTO. Cada volta testa o cabeçalho ANTES de entrar, e a
+  // saída do loop é o teste dando FALSO, não a lista acabando.
+  function passosEnquanto(c) {
+    const p = [];
+    let saida = [];
+    p.push({ linha: 1, item: -1, valor: null, ctrl: "FALSO", ctrlAtual: true, saida: [], nar:
+      `Antes do loop: ${c.ctrlNome} nasce com FALSO. É a variável de controle. ${c.varNome} ainda não existe.` });
+    let valor = null;
+    for (let i = 0; i < c.itens.length; i++) {
+      const n = i + 1;
+      const it = c.itens[i];
+      p.push({ linha: 3, item: i - 1, valor, ctrl: "FALSO", ctrlAtual: true, saida: saida.slice(), nar:
+        `Volta ${n}: testa o cabeçalho. ${c.ctrlNome} é FALSO, então NÃO ${c.ctrlNome} é VERDADEIRO: entra no bloco.` });
+      valor = it.texto;
+      p.push({ linha: 4, item: i, valor, ctrl: "FALSO", varAtual: true, saida: saida.slice(), nar:
+        `Volta ${n}: abre a peça ${n} e guarda em ${c.varNome}. Aqui a atribuição está escrita: o ENQUANTO não faz isso sozinho.` });
+      saida = saida.concat([`olhando ${it.texto.replace(/"/g, "")}`]);
+      p.push({ linha: 5, item: i, valor, ctrl: "FALSO", saida: saida.slice(), nova: true, nar:
+        `Volta ${n}: escreve. Esta linha roda em toda volta.` });
+      const achou = it.texto === '"SENTENÇA"';
+      p.push({ linha: 6, item: i, valor, ctrl: "FALSO", saida: saida.slice(), nar:
+        `Volta ${n}: ${c.varNome} é ${it.texto}. ${achou ? "É a sentença: VERDADEIRO." : "Não é a sentença: FALSO, e o ENTÃO não roda."}` });
+      if (achou) {
+        p.push({ linha: 7, item: i, valor, ctrl: "VERDADEIRO", ctrlAtual: true, saida: saida.slice(), nar:
+          `Volta ${n}: ${c.ctrlNome} vira VERDADEIRO. É a única linha que muda a variável de controle.` });
+        p.push({ linha: 3, item: i, valor, ctrl: "VERDADEIRO", ctrlAtual: true, saida: saida.slice(), nar:
+          `Testa o cabeçalho de novo. ${c.ctrlNome} é VERDADEIRO, então NÃO ${c.ctrlNome} é FALSO: o loop acaba aqui. A peça ${n + 1} nunca é aberta. ${c.varNome} guarda a última que passou.` });
+        break;
+      }
+    }
+    return p;
+  }
+
+  // Monta a sequência de passos de um cenário. Cada passo diz qual linha
+  // destacar, qual item está na volta, o valor da variável, o que já saiu e
+  // a narração.
+  function passos(c) {
+    const p = [];
+    p.push({ linha: 0, item: -1, valor: null, saida: [], nar:
+      `A lista ${c.listaNome} já existe: foi criada antes do loop. A variável ${c.varNome} ainda não existe.` });
+    let saida = [];
+    c.itens.forEach((it, i) => {
+      const n = i + 1;
+      p.push({ linha: c.linhaLoop, item: i, valor: it.texto, saida: saida.slice(), varAtual: true, nar:
+        `Volta ${n}: o PARA CADA pega o item ${n} da lista e guarda em ${c.varNome}. Ninguém escreveu essa atribuição: o loop faz.` });
+      // A linha que roda sempre, pedida em 02/09/2026: sem condição na frente,
+      // ela sai em toda volta, e é o contraste com o ENTÃO, que só sai às vezes.
+      if (c.linhaSempre) {
+        saida = saida.concat([it.checando]);
+        p.push({ linha: c.linhaSempre, item: i, valor: it.texto, saida: saida.slice(), nova: true, nar:
+          `Volta ${n}: esta linha está no bloco e não tem SE na frente, então roda em toda volta, dê a condição o que der.` });
+      }
+      if (c.linhaCond) {
+        p.push({ linha: c.linhaCond, item: i, valor: it.texto, saida: saida.slice(), nar:
+          `Volta ${n}: testa a condição com o que está em ${c.varNome}. ${it.porque}` });
+        if (it.cond) {
+          saida = saida.concat([`revisar ${c.varNome} (item ${n})`]);
+          p.push({ linha: c.linhaEntao, item: i, valor: it.texto, saida: saida.slice(), nova: true, nar:
+            `Volta ${n}: a condição deu VERDADEIRO, então a linha do ENTÃO roda para este item.` });
+        }
+      } else {
+        saida = saida.concat([it.saida]);
+        p.push({ linha: c.linhaCorpo, item: i, valor: it.texto, saida: saida.slice(), nova: true, nar:
+          `Volta ${n}: roda o bloco indentado com o que está em ${c.varNome}.` });
+      }
+    });
+    p.push({ linha: c.linhaLoop, item: -2, valor: c.itens[c.itens.length - 1].texto, saida: saida.slice(), nar:
+      `O PARA CADA volta ao início e procura o item seguinte. Não há: a lista acabou, e o loop acabou com ela. ${c.varNome} guarda o último item que passou.` });
+    return p;
+  }
+
+  let cenario = "partes";
+  const montar = (c) => c.enquanto ? passosEnquanto(c) : passos(c);
+  let seq = montar(CENARIOS[cenario]);
+  let i = 0;
+
+  const $ = (id) => document.getElementById(id);
+
+  function render() {
+    const c = CENARIOS[cenario];
+    const s = seq[i];
+    const linhas = Array.isArray(s.linha) ? s.linha : [s.linha];
+    $("codigo").innerHTML = c.codigo.map((t, k) =>
+      `<span class="l${linhas.includes(k) ? " atual" : ""}">${escapar(t) || " "}</span>`).join("");
+    $("lista-nome").textContent = c.listaNome + " =";
+    $("itens").innerHTML = c.itens.map((it, k) => {
+      let cls = "item";
+      if (k === s.item) cls += " atual";
+      else if (s.item === -2 || (s.item >= 0 && k < s.item)) cls += " feito";
+      return `<div class="${cls}">${k + 1}. ${escapar(it.texto)}</div>`;
+    }).join("");
+    $("var-nome").textContent = c.varNome + " =";
+    const v = $("var-valor");
+    if (s.valor === null) { v.textContent = "(ainda não existe)"; v.classList.add("vazio"); }
+    else { v.textContent = s.valor; v.classList.remove("vazio"); }
+    $("var").classList.toggle("atual", !!s.varAtual);
+    const ctrl = $("ctrl");
+    ctrl.hidden = !c.ctrlNome;
+    if (c.ctrlNome) {
+      $("ctrl-nome").textContent = c.ctrlNome + " =";
+      $("ctrl-valor").textContent = s.ctrl;
+      $("ctrl-valor").classList.remove("vazio");
+      ctrl.classList.toggle("atual", !!s.ctrlAtual);
+    }
+    $("saida").innerHTML = s.saida.length
+      ? s.saida.map((t, k) => `<div class="${s.nova && k === s.saida.length - 1 ? "nova" : ""}">${escapar(t)}</div>`).join("")
+      : '<div style="color:var(--cinza);font-style:italic">(nada ainda)</div>';
+    $("narracao").textContent = s.nar;
+    $("passo").textContent = `passo ${i + 1} de ${seq.length}`;
+    $("ant").disabled = i === 0;
+    $("prox").disabled = i === seq.length - 1;
+    $("c1").setAttribute("aria-pressed", cenario === "partes");
+    $("c2").setAttribute("aria-pressed", cenario === "decisoes");
+    $("c3").setAttribute("aria-pressed", cenario === "sentenca");
+    // Dentro do visualizador de slides, avisa o passo para ele decidir se a tecla anda a animação ou o slide.
+    if (parent !== window) parent.postMessage({tipo: "animacao", pos: i, total: seq.length}, "*");
+  }
+
+  function escapar(t) {
+    return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function trocar(nome) { cenario = nome; seq = montar(CENARIOS[nome]); i = 0; render(); }
+  function prox() { if (i < seq.length - 1) { i++; render(); } }
+  function ant() { if (i > 0) { i--; render(); } }
+
+  $("prox").addEventListener("click", prox);
+  $("ant").addEventListener("click", ant);
+  $("rei").addEventListener("click", () => { i = 0; render(); });
+  $("c1").addEventListener("click", () => trocar("partes"));
+  $("c2").addEventListener("click", () => trocar("decisoes"));
+  $("c3").addEventListener("click", () => trocar("sentenca"));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); prox(); }
+    else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); ant(); }
+    else if (e.key === "r" || e.key === "R" || e.key === "Home") { i = 0; render(); }
+    else if (e.key === "End") { i = seq.length - 1; render(); }
+    else if (e.key === "1") trocar("partes");
+    else if (e.key === "2") trocar("decisoes");
+    else if (e.key === "3") trocar("sentenca");
+  });
+
+  // O visualizador de slides repassa as teclas do passador e escolhe o cenário pelo fragmento (#partes).
+  addEventListener("message", (e) => {
+    if (e.data?.tipo === "tecla") document.body.dispatchEvent(new KeyboardEvent("keydown", {key: e.data.key, bubbles: true}));
+  });
+  const inicial = decodeURIComponent(location.hash.slice(1));
+  if (Object.hasOwn(CENARIOS, inicial)) trocar(inicial); else render();
+})();
+</script>
+</body>
+</html>

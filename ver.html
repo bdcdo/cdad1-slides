@@ -48,7 +48,8 @@ const arquivo = new URLSearchParams(location.search).get("deck");
 if (!arquivo || /^[a-z]+:|^\/\//i.test(arquivo)) { location.replace("./"); throw new Error("deck inválido"); }
 // A animação mora ao lado do PDF, e o link gravado no PDF é relativo a ele.
 const baseDoDeck = new URL(arquivo, location.href);
-const ANIMACAO = /^(?![a-z]+:)(?:\.\/)?[^/?#]*animacao-[^/?#]+\.html$/i;
+// O fragmento opcional (#cenario) diz em que cenário a animação abre.
+const ANIMACAO = /^(?![a-z]+:)(?:\.\/)?[^/?#]*animacao-[^/?#]+\.html(?:#[\w-]+)?$/i;
 $("baixar").href = arquivo;
 
 let pdf, atual = 1, paginas = [], ultimaRenderizacao = null;
@@ -118,7 +119,7 @@ addEventListener("keydown", (e) => {
   if (e.altKey || e.ctrlKey || e.metaKey) return;
   if (["ArrowRight", "PageDown"].includes(e.key)) andar(1);
   else if (["ArrowLeft", "PageUp"].includes(e.key)) andar(-1);
-  else if (quadro() && [" ", "r", "R", "1", "2", "Home", "End"].includes(e.key)) enviar(e.key);
+  else if (quadro() && [" ", "r", "R", "1", "2", "3", "Home", "End"].includes(e.key)) enviar(e.key);
   else if (e.key === " ") andar(1);
   else if (e.key === "Home") mostrar(1);
   else if (e.key === "End") mostrar(pdf.numPages);
@@ -138,6 +139,8 @@ function mostrarBarra() {
 }
 addEventListener("mousemove", mostrarBarra);
 addEventListener("resize", () => mostrar(atual));
+// Link para outro slide do mesmo deck (ver.html?deck=…#12) só muda o fragmento, sem recarregar.
+addEventListener("hashchange", () => mostrar(Number(location.hash.slice(1)) || 1));
 
 try {
   pdf = await pdfjs.getDocument({url: arquivo}).promise;

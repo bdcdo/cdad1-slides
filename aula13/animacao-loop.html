@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pedidos, uma volta de cada vez</title>
+<style>
+:root {
+  color-scheme: light;
+  --texto: #1a1a1a; --apoio: #505050; --fundo: #ffffff;
+  --painel: #f0f0f0; --borda: #737373; --marca: #c8102e;
+  --atual: #fff3c4; --contorno: #725400;
+  font-size: 18px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; padding: 0 24px; background: var(--fundo); color: var(--texto); font-family: system-ui, sans-serif; }
+header { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; padding-block: 16px 12px; border-bottom: 3px solid var(--marca); }
+h1 { font-size: 1.4rem; margin: 0; }
+nav { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+button, select { font: inherit; background: var(--fundo); color: var(--texto); border: 2px solid var(--borda); border-radius: 4px; padding: 6px 10px; }
+button { cursor: pointer; }
+button[aria-pressed="true"] { background: var(--texto); color: var(--fundo); border-color: var(--texto); }
+button:disabled { color: var(--apoio); cursor: default; border-style: dashed; }
+:focus-visible { outline: 3px solid var(--marca); outline-offset: 3px; }
+.intro { display: flex; gap: 12px; justify-content: space-between; align-items: baseline; padding-block: 12px; }
+.intro p { margin: 0; }
+#tipo { color: var(--apoio); }
+main { display: grid; grid-template-columns: 1.08fr 1fr; gap: 16px 24px; }
+main > *, .direita > * { min-width: 0; }
+h2 { margin: 0 0 6px; font-size: .85rem; color: var(--apoio); }
+pre, code, .valor, .campo { font-family: "DejaVu Sans Mono", Consolas, monospace; }
+pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 1rem; line-height: 1.45; }
+#codigo { padding: 10px 6px; background: var(--painel); }
+.linha { display: grid; grid-template-columns: 2.3em minmax(0, 1fr); border-left: 5px solid transparent; padding: 2px 6px; }
+.numero { color: var(--apoio); user-select: none; }
+.linha.atual { border-left-color: var(--contorno); background: var(--atual); font-weight: 700; }
+.direita { display: grid; gap: 12px; align-content: start; }
+#estrutura, #variaveis, .resultado, .terminal { background: var(--painel); padding: 10px 12px; }
+#estrutura-nome { margin-bottom: 6px; font-weight: 700; }
+.item { border: 2px solid var(--borda); background: var(--fundo); padding: 7px 9px; margin-top: 6px; }
+.item.atual { border: 3px solid var(--contorno); background: var(--atual); }
+.rotulo { font-size: .85rem; color: var(--apoio); margin-bottom: 4px; }
+.campos { display: flex; flex-wrap: wrap; gap: 6px; }
+.campo { padding: 2px 5px; border: 2px solid transparent; overflow-wrap: anywhere; }
+.campo.consultado { border-color: var(--contorno); background: var(--atual); font-weight: 700; }
+#consulta { border-left: 5px solid var(--contorno); background: var(--atual); padding: 8px 12px; min-height: 3.3rem; }
+#consulta p { margin: 0; overflow-wrap: anywhere; }
+#variaveis { display: grid; gap: 5px; }
+.variavel { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 8px; }
+.valor { overflow-wrap: anywhere; }
+.ausente { color: var(--apoio); font-family: system-ui, sans-serif; }
+.saidas { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.saidas pre { min-height: 2.9rem; }
+#narracao { grid-column: 1 / -1; margin: 0; border-left: 5px solid var(--marca); padding: 6px 12px; min-height: 3rem; }
+footer { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding-block: 12px 16px; }
+#progresso { margin-left: auto; color: var(--apoio); }
+.atalhos { color: var(--apoio); font-size: .8rem; margin: 0; padding-bottom: 12px; }
+@media (min-width: 1600px) { :root { font-size: 22px; } body { padding-inline: 32px; } main { gap: 22px 32px; } }
+/* A projeção de 768 px tem menos altura: compactar sem ocultar painéis. */
+@media (min-width: 951px) and (max-height: 850px) {
+  :root { font-size: 16px; }
+  body { padding-inline: 20px; }
+  header { padding-block: 10px 8px; }
+  .intro { padding-block: 8px; }
+  main { gap: 12px 20px; }
+  .direita { gap: 10px; }
+  .item { padding: 5px 8px; }
+  footer { padding-block: 10px; }
+}
+@media (max-width: 950px) { main { grid-template-columns: 1fr; } .saidas { grid-template-columns: 1fr; } nav { margin-left: 0; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Pedidos, uma volta de cada vez</h1>
+</header>
+<div class="intro"><p id="titulo"></p><p id="tipo"></p></div>
+<main>
+  <section aria-labelledby="codigo-titulo">
+    <h2 id="codigo-titulo">Python completo · estado depois da linha marcada com ▶</h2>
+    <pre id="codigo"></pre>
+  </section>
+  <div class="direita">
+    <section aria-labelledby="estrutura-titulo">
+      <h2 id="estrutura-titulo">Estrutura percorrida · índice começa em 0</h2>
+      <div id="estrutura"><div class="valor" id="estrutura-nome"></div><div id="itens"></div></div>
+    </section>
+    <section id="consulta" aria-labelledby="consulta-titulo">
+      <h2 id="consulta-titulo">Consulta deste passo</h2><p id="consulta-valor"></p>
+    </section>
+    <section aria-labelledby="variaveis-titulo">
+      <h2 id="variaveis-titulo">Variáveis · a troca de volta não apaga os valores anteriores</h2>
+      <div id="variaveis"></div>
+    </section>
+  </div>
+  <div class="saidas">
+    <section class="resultado"><h2 id="resultado-titulo">Resultado na memória</h2><pre id="resultado"></pre></section>
+    <section class="terminal"><h2>Saída na tela · stdout · somente print() escreve aqui</h2><pre id="stdout"></pre></section>
+  </div>
+  <p id="narracao" aria-live="polite" aria-atomic="true"></p>
+</main>
+<footer>
+  <button id="voltar">← Voltar</button><button id="avancar">Avançar →</button><button id="reiniciar">Reiniciar (R)</button>
+  <label for="passo">Ir ao passo</label><select id="passo"></select><span id="progresso"></span>
+</footer>
+<p class="atalhos">← / → ou Page Up / Page Down: um passo · R: reiniciar · Home / End: início / fim. Tab navega pelos controles; Enter ou espaço ativa o botão. Arquivo offline, sem execução de Python no navegador.</p>
+<noscript>Ative JavaScript para navegar pela sequência de estados.</noscript>
+<script>
+"use strict";
+// Estados imutáveis retratam o efeito da linha; chave ausente em memoria indica variável ainda inexistente.
+const LoopAnimation = (() => {
+  const clonar = (valor) => JSON.parse(JSON.stringify(valor));
+  function congelar(valor) {
+    if (valor && typeof valor === "object") {
+      Object.values(valor).forEach(congelar);
+      Object.freeze(valor);
+    }
+    return valor;
+  }
+  function python(valor, aspas = "'") {
+    if (valor === true) return "True";
+    if (valor === false) return "False";
+    if (valor === null) return "None";
+    if (typeof valor === "string") return aspas + valor.replace(/\\/g, "\\\\").replaceAll(aspas, "\\" + aspas).replace(/\n/g, "\\n") + aspas;
+    if (Array.isArray(valor)) return "[" + valor.map((item) => python(item, aspas)).join(", ") + "]";
+    if (typeof valor === "object") return "{" + Object.entries(valor).map(([chave, item]) => python(chave, aspas) + ": " + python(item, aspas)).join(", ") + "}";
+    return String(valor);
+  }
+  const ids = ["listas"];
+  function criarCenario(id, vazio = false) {
+    if (!ids.includes(id)) throw new Error("Cenário desconhecido");
+    const dados = vazio ? [] : [["Ana Lima", true], ["Caio Prado", false]];
+    const c = {id, dados, linhas: [], resultado: "avisos"};
+    const linha = (chave, texto) => c.linhas.push({chave, texto});
+    linha("dados", `pedidos = ${python(dados, '"')}`);
+    c.titulo = "Guardar o aviso de cada pedido";
+    c.tipo = "Cada item recebido é uma lista";
+    c.variaveis = ["pedido", "nome", "no_prazo", "aviso"];
+    linha("iniciarResultado", "avisos = []");
+    linha("for", "for pedido in pedidos:");
+    linha("nome", "    nome = pedido[0]");
+    linha("respondido", "    no_prazo = pedido[1]");
+    linha("condicao", "    if no_prazo:");
+    linha("registrada", '        aviso = nome + ": pode desistir"');
+    linha("else", "    else:");
+    linha("pendente", '        aviso = nome + ": prazo encerrado"');
+    linha("acrescentar", "    avisos.append(aviso)");
+    linha("imprimir", "print(avisos)");
+    c.codigo = c.linhas.map((entrada) => entrada.texto).join("\n");
+    return congelar(c);
+  }
+  function montar(c) {
+    const estados = [], memoria = {}, stdout = [];
+    let indice = null, volta = 0;
+    const registrar = (chave, narracao, consulta = null) => {
+      estados.push(congelar(clonar({
+        linha: chave === null ? null : c.linhas.findIndex((entrada) => entrada.chave === chave) + 1,
+        operacao: chave, memoria, stdout, indice, volta, consulta, narracao
+      })));
+    };
+    registrar(null, "Antes de executar: nenhuma variável existe. Avance para criar a estrutura.");
+    memoria.pedidos = clonar(c.dados);
+    registrar("dados", "pedidos guarda a lista completa. pedido ainda não existe; ele receberá um item por volta.");
+    memoria[c.resultado] = [];
+    registrar("iniciarResultado", `${c.resultado} nasce vazia, antes do for. Criar a lista não imprime nada.`);
+    const itens = c.dados;
+    itens.forEach((item, posicao) => {
+      indice = posicao; volta = posicao + 1;
+      memoria.pedido = clonar(item);
+      registrar("for", `Volta ${volta}: o for recebe o item de índice ${indice}. pedido recebe o registro inteiro. As outras variáveis mantêm seus valores até outra atribuição.`);
+      const nome = item[0], respondido = item[1];
+      memoria.nome = nome;
+      registrar("nome", "pedido[0] consulta a posição zero dentro do registro corrente. nome recebe esse texto.", {expressao: "pedido[0]", valor: nome, campo: 0});
+      memoria.no_prazo = respondido;
+      registrar("respondido", "pedido[1] consulta a posição um dentro do registro corrente. no_prazo recebe esse booleano.", {expressao: "pedido[1]", valor: respondido, campo: 1});
+      registrar("condicao", `A condição dá ${python(respondido)}. ${respondido ? "O próximo passo usa o ramo if." : "O próximo passo usa o ramo else."}`,
+        {expressao: "no_prazo", valor: respondido, campo: null, condicao: respondido});
+      memoria.aviso = nome + (respondido ? ": pode desistir" : ": prazo encerrado");
+      registrar(respondido ? "registrada" : "pendente", "A atribuição guarda a mensagem em aviso. Ainda não acrescentou à lista nem imprimiu.",
+        {expressao: "nome", valor: nome, campo: null});
+      memoria[c.resultado].push(memoria.aviso);
+      registrar("acrescentar", "append está fora dos dois ramos e dentro do for: acrescenta um aviso em toda volta. Não imprime.");
+    });
+    indice = null;
+    registrar("for", itens.length
+      ? `Não há próximo item. O for termina após ${volta} voltas. pedido continua com o último valor; não há item corrente.`
+      : "A lista está vazia: nenhuma volta executa. pedido não chegou a existir.");
+    stdout.push(python(memoria[c.resultado]));
+    registrar("imprimir", `Agora print(${c.resultado}), fora do for, mostra a lista inteira. A memória não muda.`);
+    registrar(null, "Programa encerrado. A memória e a saída permanecem visíveis. Volte para conferir qualquer passo.");
+    return congelar(estados);
+  }
+  // Navegar só troca o índice: voltar nunca tenta desfazer append nem print.
+  function criarControle() {
+    let cenario, estados, posicao;
+    const trocar = (id) => { cenario = criarCenario(id); estados = montar(cenario); posicao = 0; };
+    trocar(ids[0]);
+    return {
+      trocar,
+      ir: (destino) => { if (Number.isInteger(destino)) posicao = Math.max(0, Math.min(estados.length - 1, destino)); },
+      mover: (delta) => { posicao = Math.max(0, Math.min(estados.length - 1, posicao + delta)); },
+      reiniciar: () => { posicao = 0; },
+      get cenario() { return cenario; }, get estados() { return estados; }, get posicao() { return posicao; }
+    };
+  }
+  return congelar({ids, criarCenario, montar, criarControle, python});
+})();
+// Contrato para o teste local: não exige DOM nem bibliotecas em Node.
+globalThis.LoopAnimation = LoopAnimation;
+if (typeof document !== "undefined") {
+  const $ = (id) => document.getElementById(id);
+  const controle = LoopAnimation.criarControle();
+  const embutida = typeof window !== "undefined" && window.parent !== window;
+  const repr = LoopAnimation.python;
+  const escapar = (texto) => String(texto).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  function campos(item, consulta) {
+    if (typeof item === "string") return `<span class="campo">${escapar(repr(item))}</span>`;
+    return Object.entries(item).map(([chave, valor]) => {
+      const selecionado = consulta && String(consulta.campo) === chave;
+      const rotulo = Array.isArray(item) ? `[${chave}]` : repr(chave);
+      return `<span class="campo${selecionado ? " consultado" : ""}">${selecionado ? "consulta: " : ""}${escapar(rotulo)}: ${escapar(repr(valor))}</span>`;
+    }).join("");
+  }
+  function renderizar() {
+    const c = controle.cenario, s = controle.estados[controle.posicao];
+    $("titulo").textContent = c.titulo;
+    $("tipo").textContent = c.tipo;
+    $("codigo").innerHTML = c.linhas.map((entrada, indice) => `<span class="linha${s.linha === indice + 1 ? " atual" : ""}"${s.linha === indice + 1 ? ' aria-current="step"' : ""}><span class="numero">${s.linha === indice + 1 ? "▶" : " "}${indice + 1}</span><span>${escapar(entrada.texto)}</span></span>`).join("");
+    $("estrutura-nome").textContent = "pedidos";
+    const criada = Object.hasOwn(s.memoria, "pedidos");
+    const itens = c.dados;
+    $("itens").innerHTML = !criada ? '<span class="ausente">Ainda não existe.</span>' :
+      (itens.length ? itens.map((item, indice) => `<div class="item${s.indice === indice ? " atual" : ""}"><div class="rotulo">Índice ${indice}${s.indice === indice ? ` · item corrente · volta ${s.volta}` : ""}</div><div class="campos">${campos(item, s.indice === indice ? s.consulta : null)}</div></div>`).join("") : '<div class="ausente">Lista vazia: []</div>');
+    $("consulta-valor").textContent = s.consulta ? `${s.consulta.expressao} → ${repr(s.consulta.valor)}${Object.hasOwn(s.consulta, "condicao") ? ` · condição: ${repr(s.consulta.condicao)}` : ""}` : "Nenhum campo consultado neste passo.";
+    $("variaveis").innerHTML = c.variaveis.map((nome) => `<div class="variavel"><code>${nome}</code><span class="valor${Object.hasOwn(s.memoria, nome) ? "" : " ausente"}">${Object.hasOwn(s.memoria, nome) ? escapar(repr(s.memoria[nome])) : "Ainda não existe"}</span></div>`).join("");
+    $("resultado-titulo").textContent = c.resultado ? `Resultado na memória · ${c.resultado}` : "Resultado na memória · sem lista de resultados";
+    $("resultado").textContent = c.resultado ? (Object.hasOwn(s.memoria, c.resultado) ? `${c.resultado} = ${repr(s.memoria[c.resultado])}` : "Ainda não existe.") : "Este programa só imprime os documentos. Não cria outra lista.";
+    $("stdout").textContent = s.stdout.length ? s.stdout.join("\n") + "\n" : "(nenhuma saída)";
+    $("narracao").textContent = s.narracao;
+    $("progresso").textContent = `Passo ${controle.posicao + 1} de ${controle.estados.length} · ${s.indice === null ? "sem item corrente" : `volta ${s.volta} / índice ${s.indice}`}`;
+    $("voltar").disabled = controle.posicao === 0;
+    $("avancar").disabled = controle.posicao === controle.estados.length - 1;
+    $("passo").value = String(controle.posicao);
+    // Dentro do visualizador de slides, avisa o passo para ele decidir se a tecla anda a animação ou o slide.
+    if (embutida) parent.postMessage({tipo: "animacao", pos: controle.posicao, total: controle.estados.length}, "*");
+  }
+  function trocar(id) {
+    controle.trocar(id);
+    $("passo").innerHTML = controle.estados.map((s, indice) => `<option value="${indice}">${indice + 1}${s.linha === null ? indice === 0 ? " · antes" : " · fim" : ` · linha ${s.linha}`}</option>`).join("");
+    renderizar();
+  }
+  $("voltar").addEventListener("click", () => { controle.mover(-1); renderizar(); });
+  $("avancar").addEventListener("click", () => { controle.mover(1); renderizar(); });
+  $("reiniciar").addEventListener("click", () => { controle.reiniciar(); renderizar(); });
+  $("passo").addEventListener("change", (evento) => { controle.ir(Number(evento.target.value)); renderizar(); });
+  document.addEventListener("keydown", (evento) => {
+    if (evento.altKey || evento.ctrlKey || evento.metaKey || evento.target.closest("select, input, textarea, [contenteditable]")) return;
+    if (["ArrowRight", "PageDown"].includes(evento.key)) controle.mover(1);
+    else if (["ArrowLeft", "PageUp"].includes(evento.key)) controle.mover(-1);
+    else if (evento.key.toLowerCase() === "r" || evento.key === "Home") controle.reiniciar();
+    else if (evento.key === "End") controle.ir(controle.estados.length - 1);
+    else return;
+    evento.preventDefault(); renderizar();
+  });
+  // O visualizador de slides repassa as teclas do passador e escolhe o cenário pelo fragmento (#listas).
+  if (typeof window !== "undefined") addEventListener("message", (evento) => {
+    if (evento.data?.tipo === "tecla") document.body.dispatchEvent(new KeyboardEvent("keydown", {key: evento.data.key, bubbles: true}));
+  });
+  const inicial = typeof location === "undefined" ? "" : decodeURIComponent(location.hash.slice(1));
+  trocar(LoopAnimation.ids.includes(inicial) ? inicial : LoopAnimation.ids[0]);
+}
+</script>
+</body>
+</html>

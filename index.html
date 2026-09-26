@@ -23,19 +23,18 @@ li.aula { border-top: 1px solid var(--linha); padding: 14px 0; }
 .numero { font-weight: 700; min-width: 4.5em; }
 .data { color: var(--apoio); font-size: .9rem; }
 .titulo { flex: 1 1 18em; }
-ul.decks { list-style: none; padding: 4px 0 0 calc(4.5em + 12px); margin: 0; }
-ul.decks li { margin: 4px 0; }
+.decks { padding: 4px 0 0 calc(4.5em + 12px); margin: 0; }
 a { color: var(--link); }
 a:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
 .pdf { color: var(--apoio); font-size: .9rem; margin-left: 8px; }
 .vazio { color: var(--apoio); }
-@media (max-width: 520px) { ul.decks { padding-left: 0; } }
+@media (max-width: 520px) { .decks { padding-left: 0; } }
 </style>
 </head>
 <body>
 <main>
   <h1>Ciência de Dados Aplicada ao Direito I</h1>
-  <p class="sub">Slides das aulas já dadas. Cada deck abre no navegador, com as animações no lugar; o PDF continua disponível para baixar.</p>
+  <p class="sub">Slides das aulas já dadas. Cada aula abre no navegador, com as animações no lugar; o PDF continua disponível para baixar.</p>
   <ol id="aulas"><li class="vazio">Carregando…</li></ol>
 </main>
 <script>
@@ -47,7 +46,7 @@ fetch("aulas.json").then((r) => r.json()).then((aulas) => {
   if (!aulas.length) { lista.innerHTML = '<li class="vazio">Nenhum deck publicado ainda.</li>'; return; }
   lista.innerHTML = aulas.map((a) => `<li class="aula">
     <div class="cabeca"><span class="numero">Aula ${escapar(a.aula)}</span><span class="titulo">${escapar(a.titulo)}</span><span class="data">${escapar(a.data)}</span></div>
-    <ul class="decks">${a.decks.map((d) => `<li><a href="ver.html?deck=${encodeURIComponent(d.arquivo)}">${escapar(d.rotulo)}</a><a class="pdf" href="${escapar(d.arquivo)}" download>PDF</a></li>`).join("")}</ul>
+    <p class="decks"><a href="ver.html?deck=${encodeURIComponent(a.arquivo)}">Ver os slides</a><a class="pdf" href="${escapar(a.arquivo)}" download>PDF</a></p>
   </li>`).join("");
 }).catch(() => { document.getElementById("aulas").innerHTML = '<li class="vazio">Não consegui carregar a lista de aulas.</li>'; });
 </script>
