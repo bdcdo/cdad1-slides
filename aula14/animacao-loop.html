@@ -10,6 +10,8 @@
   --texto: #1a1a1a; --apoio: #505050; --fundo: #ffffff;
   --painel: #f0f0f0; --borda: #737373; --marca: #c8102e;
   --atual: #fff3c4; --contorno: #725400;
+  --py-comentario: #007400; --py-texto: #a31515; --py-numero: #087550; --py-palavra: #0000ff;
+  --py-controle: #af00db; --py-embutida: #795e26; --py-nome: #001080;
   font-size: 18px;
 }
 * { box-sizing: border-box; }
@@ -69,6 +71,13 @@ footer { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding
   footer { padding-block: 10px; }
 }
 @media (max-width: 950px) { main { grid-template-columns: 1fr; } .saidas { grid-template-columns: 1fr; } nav { margin-left: 0; } }
+.py-comentario { color: var(--py-comentario); }
+.py-texto { color: var(--py-texto); }
+.py-numero { color: var(--py-numero); }
+.py-palavra { color: var(--py-palavra); }
+.py-controle { color: var(--py-controle); }
+.py-embutida { color: var(--py-embutida); }
+.py-nome { color: var(--py-nome); }
 </style>
 </head>
 <body>
@@ -112,6 +121,37 @@ footer { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding
 <p class="atalhos">← / → ou Page Up / Page Down: um passo · R: reiniciar · 1–3: cenário · Home / End: início / fim. Tab navega pelos controles; Enter ou espaço ativa o botão. Arquivo offline, sem execução de Python no navegador.</p>
 <noscript>Ative JavaScript para navegar pela sequência de estados.</noscript>
 <script>
+// Python com as cores do tema claro do Colab, as mesmas que o Typst dá ao código do deck
+// (tools/slides-typst/colab-claro.tmTheme); tools/test-cores-python.py compara as duas.
+// Recebe uma linha de texto cru e devolve HTML escapado.
+const PY_CONTROLE = new Set(["for", "if", "elif", "else", "while", "return", "break", "continue", "import", "from", "as", "try", "except", "finally", "with", "pass", "raise"]);
+const PY_PALAVRA = new Set(["not", "and", "or", "in", "is", "def", "class", "lambda", "True", "False", "None"]);
+const PY_EMBUTIDA = new Set(["print", "len", "str", "int", "float", "bool", "type", "range", "list", "dict", "set", "tuple", "sum", "min", "max", "round", "sorted", "abs", "input", "enumerate", "zip", "isinstance"]);
+function colorirPython(linha) {
+  const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const cor = (classe, t) => `<span class="py-${classe}">${esc(t)}</span>`;
+  // O `in` do cabeçalho do for é controle (roxo); fora dele, `in` é operador (azul), como no Colab.
+  let inDoFor = /^\s*for\b/.test(linha);
+  let anterior = "";
+  return linha.replace(/(#.*$)|("(?:[^"\\]|\\.)*"?|'(?:[^'\\]|\\.)*'?)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_À-ɏ][\wÀ-ɏ]*)|([\s\S])/g,
+    (t, comentario, texto, numero, nome) => {
+      let saida;
+      if (comentario) saida = cor("comentario", t);
+      else if (texto) saida = cor("texto", t);
+      else if (numero) saida = cor("numero", t);
+      else if (nome) {
+        if (nome === "in" && inDoFor) { inDoFor = false; saida = cor("controle", t); }
+        else if (PY_CONTROLE.has(nome)) saida = cor("controle", t);
+        else if (PY_PALAVRA.has(nome)) saida = cor("palavra", t);
+        // Depois de ponto é método, e método tem a cor de nome (`.append`), como no Colab.
+        else if (PY_EMBUTIDA.has(nome) && anterior !== ".") saida = cor("embutida", t);
+        else saida = cor("nome", t);
+      } else saida = esc(t);
+      if (t.trim()) anterior = t;
+      return saida;
+    });
+}
+globalThis.colorirPython = colorirPython;
 "use strict";
 // Estados imutáveis retratam o efeito da linha; chave ausente em memoria indica variável ainda inexistente.
 const LoopAnimation = (() => {
@@ -265,7 +305,7 @@ if (typeof document !== "undefined") {
     const documentos = c.id === "documentos";
     $("titulo").textContent = c.titulo;
     $("tipo").textContent = c.tipo;
-    $("codigo").innerHTML = c.linhas.map((entrada, indice) => `<span class="linha${s.linha === indice + 1 ? " atual" : ""}"${s.linha === indice + 1 ? ' aria-current="step"' : ""}><span class="numero">${s.linha === indice + 1 ? "▶" : " "}${indice + 1}</span><span>${escapar(entrada.texto)}</span></span>`).join("");
+    $("codigo").innerHTML = c.linhas.map((entrada, indice) => `<span class="linha${s.linha === indice + 1 ? " atual" : ""}"${s.linha === indice + 1 ? ' aria-current="step"' : ""}><span class="numero">${s.linha === indice + 1 ? "▶" : " "}${indice + 1}</span><span>${colorirPython(entrada.texto)}</span></span>`).join("");
     $("estrutura-nome").textContent = documentos ? 'pedido → campo "documentos"' : "casos";
     const criada = Object.hasOwn(s.memoria, documentos ? "pedido" : "casos");
     const itens = documentos ? c.dados.documentos : c.dados;

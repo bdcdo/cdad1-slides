@@ -50,7 +50,9 @@
   section h2 { font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cinza); margin: 0 0 0.5rem; }
   pre { margin: 0; font-family: "JetBrains Mono", "Fira Mono", Consolas, monospace; font-size: 1.05rem; line-height: 1.5;
         background: var(--caixa); border-radius: 8px; padding: 0.8rem 1rem; overflow-x: auto; }
-  pre .l { display: block; padding: 0 0.4rem; border-left: 6px solid transparent; white-space: pre; }
+  /* Linha longa quebra em vez de sair do painel; a continuação recua 4ch, para não se confundir com linha nova. */
+  pre .l { display: block; padding: 0 0.4rem 0 calc(0.4rem + 4ch); text-indent: -4ch; border-left: 6px solid transparent;
+           white-space: pre-wrap; overflow-wrap: anywhere; }
   pre .l.atual { background: var(--atual); border-left-color: var(--atual-borda); font-weight: 700; }
   .memoria { display: flex; flex-direction: column; gap: 1rem; }
   .lista { background: var(--caixa); border-radius: 8px; padding: 0.6rem 0.8rem; }
