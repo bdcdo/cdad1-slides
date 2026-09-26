@@ -1,0 +1,176 @@
+[
+ {
+  "aula": "1",
+  "data": "ter 11/08",
+  "titulo": "Apresentação da disciplina",
+  "decks": [
+   {
+    "rotulo": "Slides",
+    "arquivo": "aula01/aula1.pdf"
+   }
+  ]
+ },
+ {
+  "aula": "2",
+  "data": "qua 12/08",
+  "titulo": "Expertise e modelos de linguagem",
+  "decks": [
+   {
+    "rotulo": "Slides",
+    "arquivo": "aula02/aula2-reduzida.pdf"
+   }
+  ]
+ },
+ {
+  "aula": "3",
+  "data": "ter 18/08",
+  "titulo": "Impacto da IA no trabalho de conhecimento",
+  "decks": [
+   {
+    "rotulo": "Slides",
+    "arquivo": "aula03/aula3.pdf"
+   }
+  ]
+ },
+ {
+  "aula": "4",
+  "data": "qua 19/08",
+  "titulo": "Impacto da IA no Direito",
+  "decks": [
+   {
+    "rotulo": "Slides",
+    "arquivo": "aula04/aula4.pdf"
+   }
+  ]
+ },
+ {
+  "aula": "5",
+  "data": "seg 24/08",
+  "titulo": "Pensamento computacional e especificação (dinâmica do pão com Nutella)",
+  "decks": [
+   {
+    "rotulo": "Slides",
+    "arquivo": "aula05/aula5.pdf"
+   }
+  ]
+ },
+ {
+  "aula": "6",
+  "data": "qua 26/08",
+  "titulo": "Variáveis e estruturas de dados",
+  "decks": [
+   {
+    "rotulo": "Slides",
+    "arquivo": "aula06/aula6.pdf"
+   }
+  ]
+ },
+ {
+  "aula": "7",
+  "data": "ter 01/09",
+  "titulo": "Condicionais",
+  "decks": [
+   {
+    "rotulo": "Revisão",
+    "arquivo": "aula07/aula7-revisao.pdf"
+   },
+   {
+    "rotulo": "Novidades",
+    "arquivo": "aula07/aula7-novidades.pdf"
+   }
+  ]
+ },
+ {
+  "aula": "8",
+  "data": "qua 02/09",
+  "titulo": "Condicionais: art. 171 e art. 186, e estreia dos loops",
+  "decks": [
+   {
+    "rotulo": "Condicionais",
+    "arquivo": "aula08/aula8-condicionais.pdf"
+   },
+   {
+    "rotulo": "Loops",
+    "arquivo": "aula08/aula8-loops.pdf"
+   }
+  ]
+ },
+ {
+  "aula": "9",
+  "data": "ter 08/09",
+  "titulo": "Funções em pseudocódigo (e a ideia de classe)",
+  "decks": [
+   {
+    "rotulo": "APS",
+    "arquivo": "aula09/aps.pdf"
+   },
+   {
+    "rotulo": "Funções",
+    "arquivo": "aula09/aula9.pdf"
+   },
+   {
+    "rotulo": "Revisão de loops",
+    "arquivo": "aula09/aula9-loops.pdf"
+   }
+  ]
+ },
+ {
+  "aula": "10",
+  "data": "qua 09/09",
+  "titulo": "Setup do ambiente, com esclarecimentos da APS",
+  "decks": [
+   {
+    "rotulo": "Esclarecimentos da APS",
+    "arquivo": "aula10/aps-esclarecimentos.pdf"
+   },
+   {
+    "rotulo": "Setup do ambiente",
+    "arquivo": "aula10/aula10.pdf"
+   }
+  ]
+ },
+ {
+  "aula": "11",
+  "data": "ter 15/09",
+  "titulo": "Primeiros passos em Python",
+  "decks": [
+   {
+    "rotulo": "Slides",
+    "arquivo": "aula11/aula11.pdf"
+   }
+  ]
+ },
+ {
+  "aula": "12",
+  "data": "qua 16/09",
+  "titulo": "Variáveis, condições e respostas em Python",
+  "decks": [
+   {
+    "rotulo": "Slides",
+    "arquivo": "aula12/aula12.pdf"
+   }
+  ]
+ },
+ {
+  "aula": "13",
+  "data": "ter 22/09",
+  "titulo": "Condições compostas, faixas e coleções",
+  "decks": [
+   {
+    "rotulo": "Slides",
+    "arquivo": "aula13/aula13.pdf"
+   }
+  ]
+ },
+ {
+  "aula": "14",
+  "data": "qua 23/09",
+  "titulo": "Aplicar uma regra a muitos casos",
+  "decks": [
+   {
+    "rotulo": "Slides",
+    "arquivo": "aula14/aula14.pdf"
+   }
+  ]
+ }
+]

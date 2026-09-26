@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slides</title>
+<link rel="icon" href="data:,">
+<style>
+:root { color-scheme: dark; --fundo: #1e1e1e; --barra: rgba(30, 30, 30, .92); --texto: #f2f2f2; --borda: #8a8a8a; }
+html, body { margin: 0; height: 100%; background: var(--fundo); color: var(--texto); font-family: system-ui, sans-serif; overflow: hidden; }
+#palco { position: fixed; inset: 0; display: grid; place-items: center; }
+#pagina { position: relative; background: #fff; box-shadow: 0 0 24px rgba(0, 0, 0, .5); }
+#pagina canvas, #pagina iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+#pagina iframe { pointer-events: none; background: #fff; }
+#texto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: pre-wrap; }
+#barra { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); display: flex; gap: 8px; align-items: center;
+  background: var(--barra); padding: 6px 10px; border-radius: 6px; font-size: 15px; transition: opacity .3s; }
+#barra.oculta { opacity: 0; pointer-events: none; }
+#barra button, #barra a { font: inherit; color: var(--texto); background: transparent; border: 2px solid var(--borda); border-radius: 4px; padding: 4px 10px; cursor: pointer; text-decoration: none; }
+#barra :focus-visible { outline: 3px solid #ffd54a; outline-offset: 2px; }
+#numero { min-width: 5.5em; text-align: center; }
+#aviso { position: fixed; inset: 0; display: grid; place-items: center; font-size: 18px; }
+@media (prefers-reduced-motion: reduce) { #barra { transition: none; } }
+</style>
+</head>
+<body>
+<div id="palco"><div id="pagina" role="img" aria-live="polite"><div id="texto"></div></div></div>
+<p id="aviso">Carregando os slides…</p>
+<nav id="barra" aria-label="Navegação dos slides">
+  <button id="anterior" title="Página anterior (←, Page Up)">◀</button>
+  <span id="numero"></span>
+  <button id="proximo" title="Próxima página (→, Page Down, espaço)">▶</button>
+  <button id="tela-cheia" title="Tela cheia (F)">Tela cheia</button>
+  <a id="baixar" download>Baixar PDF</a>
+  <a href="./">Todas as aulas</a>
+</nav>
+<script type="module">
+// Mostra um deck em PDF página a página e, onde a página tem link relativo para uma
+// animação (`animacao-*.html`), troca a página inteira pela animação interativa.
+// O deck continua sendo o PDF; o visualizador só lê o que já está nele.
+// Uso: ver.html?deck=aula25/aula25.pdf#3 abre o deck na página 3.
+import * as pdfjs from "./pdfjs/pdf.min.mjs";
+pdfjs.GlobalWorkerOptions.workerSrc = new URL("./pdfjs/pdf.worker.min.mjs", location.href).href;
+
+const $ = (id) => document.getElementById(id);
+const arquivo = new URLSearchParams(location.search).get("deck");
+// Só caminhos relativos deste site: o parâmetro não pode apontar o visualizador para outro domínio.
+if (!arquivo || /^[a-z]+:|^\/\//i.test(arquivo)) { location.replace("./"); throw new Error("deck inválido"); }
+// A animação mora ao lado do PDF, e o link gravado no PDF é relativo a ele.
+const baseDoDeck = new URL(arquivo, location.href);
+const ANIMACAO = /^(?![a-z]+:)(?:\.\/)?[^/?#]*animacao-[^/?#]+\.html$/i;
+$("baixar").href = arquivo;
+
+let pdf, atual = 1, paginas = [], ultimaRenderizacao = null;
+const estados = new Map(); // janela da animação → {pos, total}
+
+async function ler(n) {
+  if (paginas[n]) return paginas[n];
+  const pagina = await pdf.getPage(n);
+  const anotacoes = await pagina.getAnnotations();
+  const link = anotacoes.find((a) => a.subtype === "Link" && ANIMACAO.test(a.unsafeUrl || a.url || ""));
+  const texto = (await pagina.getTextContent()).items.map((i) => i.str).join(" ");
+  const animacao = link ? new URL(link.unsafeUrl || link.url, baseDoDeck).href : null;
+  return (paginas[n] = {pagina, animacao, texto});
+}
+
+function medida(pagina) {
+  const base = pagina.getViewport({scale: 1});
+  const escala = Math.min(innerWidth / base.width, innerHeight / base.height);
+  return {largura: base.width * escala, altura: base.height * escala, escala};
+}
+
+async function mostrar(n, voltando = false) {
+  atual = Math.max(1, Math.min(pdf.numPages, n));
+  const {pagina, animacao, texto} = await ler(atual);
+  const {largura, altura, escala} = medida(pagina);
+  const caixa = $("pagina");
+  caixa.style.width = largura + "px"; caixa.style.height = altura + "px";
+  caixa.querySelectorAll("canvas, iframe").forEach((el) => el.remove());
+  $("texto").textContent = texto;
+  caixa.setAttribute("aria-label", `Slide ${atual} de ${pdf.numPages}`);
+  if (animacao) {
+    const quadro = document.createElement("iframe");
+    quadro.src = animacao; quadro.title = "Animação do slide " + atual; quadro.tabIndex = -1;
+    // Quem chega voltando da página seguinte encontra a animação no último passo.
+    if (voltando) quadro.addEventListener("load", () => quadro.contentWindow.postMessage({tipo: "tecla", key: "End"}, "*"), {once: true});
+    caixa.appendChild(quadro);
+  } else {
+    // Canvas na resolução da tela, para o texto do slide não borrar no projetor.
+    const dpr = window.devicePixelRatio || 1;
+    const viewport = pagina.getViewport({scale: escala * dpr});
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(viewport.width); canvas.height = Math.round(viewport.height);
+    caixa.appendChild(canvas);
+    ultimaRenderizacao?.cancel();
+    ultimaRenderizacao = pagina.render({canvas, canvasContext: canvas.getContext("2d"), viewport});
+    try { await ultimaRenderizacao.promise; } catch (e) { if (e?.name !== "RenderingCancelledException") throw e; }
+  }
+  $("numero").textContent = `${atual} / ${pdf.numPages}`;
+  $("anterior").disabled = atual === 1; $("proximo").disabled = atual === pdf.numPages;
+  history.replaceState(null, "", location.search + "#" + atual);
+  if (atual < pdf.numPages) ler(atual + 1);
+}
+
+const quadro = () => $("pagina").querySelector("iframe");
+const enviar = (key) => quadro().contentWindow.postMessage({tipo: "tecla", key}, "*");
+addEventListener("message", (e) => { if (e.data?.tipo === "animacao") estados.set(e.source, e.data); });
+
+// Na página de animação, avançar anda a animação até o último passo e só então muda de página.
+function andar(delta) {
+  const q = quadro(), est = q && estados.get(q.contentWindow);
+  if (q && est && delta > 0 && est.pos < est.total - 1) enviar("ArrowRight");
+  else if (q && est && delta < 0 && est.pos > 0) enviar("ArrowLeft");
+  else mostrar(atual + delta, delta < 0);
+}
+
+addEventListener("keydown", (e) => {
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  if (["ArrowRight", "PageDown"].includes(e.key)) andar(1);
+  else if (["ArrowLeft", "PageUp"].includes(e.key)) andar(-1);
+  else if (quadro() && [" ", "r", "R", "1", "2", "Home", "End"].includes(e.key)) enviar(e.key);
+  else if (e.key === " ") andar(1);
+  else if (e.key === "Home") mostrar(1);
+  else if (e.key === "End") mostrar(pdf.numPages);
+  else if (e.key.toLowerCase() === "f") alternarTelaCheia();
+  else return;
+  e.preventDefault();
+});
+function alternarTelaCheia() { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
+$("anterior").onclick = () => andar(-1);
+$("proximo").onclick = () => andar(1);
+$("tela-cheia").onclick = alternarTelaCheia;
+
+let relogio;
+function mostrarBarra() {
+  $("barra").classList.remove("oculta"); clearTimeout(relogio);
+  relogio = setTimeout(() => { if (!$("barra").matches(":focus-within")) $("barra").classList.add("oculta"); }, 2500);
+}
+addEventListener("mousemove", mostrarBarra);
+addEventListener("resize", () => mostrar(atual));
+
+try {
+  pdf = await pdfjs.getDocument({url: arquivo}).promise;
+  const {info} = await pdf.getMetadata().catch(() => ({info: {}}));
+  if (info?.Title) document.title = info.Title;
+  $("aviso").remove();
+  await mostrar(Number(location.hash.slice(1)) || 1);
+  mostrarBarra();
+} catch (erro) {
+  $("aviso").textContent = `Não consegui abrir ${arquivo}: ${erro.message}`;
+}
+</script>
+</body>
+</html>
