@@ -62,6 +62,9 @@ html, body { margin: 0; height: 100%; background: #26282c; font-family: system-u
 html.embutido { --sans: Inter, Arial, Arimo, "Liberation Sans", Lato, sans-serif; }
 html.embutido, html.embutido body { background: #fff; font-family: var(--sans); }
 html.embutido #cabeca, html.embutido #narracao, html.embutido #controles { display: none; }
+/* Modo cheio (comum.js, MODO_CHEIO): o slide inteiro é da animação, e só a barra de controles some. */
+html.cheio, html.cheio body { background: #fff; }
+html.cheio #controles { display: none; }
 /* Palco recortado (comum.js, ajustar): o palco passa da janela, e o documento não pode rolar até lá,
    nem pelo fragmento do cenário, que às vezes é também o id de um elemento (#ambiente). O body corta
    com clip, que não abre área de rolagem, e é o bloco de contenção da moldura (absoluta), para cortá-la
@@ -620,8 +623,16 @@ const reduzido = matchMedia("(prefers-reduced-motion: reduce)").matches;
 // de conteúdo de um slide comum e pede este modo com ?embutido no src do iframe (antes do #cenario).
 // A página esconde título, barra de controles e narração (comum.css, html.embutido) e ajustar()
 // recorta o palco aos painéis. Sem o parâmetro, nada muda.
-const MODO_EMBUTIDO = new URLSearchParams(location.search).has("embutido");
+//
+// Modo cheio (?embutido=cheio, pedido pelo visualizador com moldura=cheia): a animação ocupa o slide
+// inteiro, com título e narração, e só a barra de controles some, porque avançar, voltar e contar
+// passos ficam com o visualizador. Sem a barra de 56 px, o palco de 1280 x 720 enche uma página 16:9
+// de ponta a ponta, e a letra fica do tamanho que foi desenhada para ter.
+const _embutido = new URLSearchParams(location.search).get("embutido");
+const MODO_CHEIO = _embutido === "cheio";
+const MODO_EMBUTIDO = _embutido !== null && !MODO_CHEIO;
 if (MODO_EMBUTIDO) document.documentElement.classList.add("embutido");
+if (MODO_CHEIO) document.documentElement.classList.add("cheio");
 const $ = (id) => document.getElementById(id);
 const escapar = (texto) => String(texto).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -822,6 +833,7 @@ function iniciar({animacao, cenarios, rotulos, preparar, espera}) {
   // painéis, com a barra. O resto do palco fica cortado por clip-path, para não aparecer na sobra da
   // janela nem por baixo da barra, que não tem fundo.
   function recorte() {
+    if (MODO_CHEIO) return {x: 0, y: 0, w: 1280, h: 720, barra: 0};
     const narracao = $("narracao");
     const semNarracao = !MODO_EMBUTIDO && narracao && getComputedStyle(narracao).display === "none";
     if (!MODO_EMBUTIDO && !semNarracao) return {x: 0, y: 0, w: 1280, h: 720, barra: 56};

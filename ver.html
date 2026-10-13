@@ -48,14 +48,24 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL("./pdfjs/pdf.worker.min.mjs", loca
 
 const $ = (id) => document.getElementById(id);
 const arquivo = new URLSearchParams(location.search).get("deck");
-// Só caminhos relativos deste site: o parâmetro não pode apontar o visualizador para outro domínio.
-if (!arquivo || /^[a-z]+:|^\/\//i.test(arquivo)) { location.replace("./"); throw new Error("deck inválido"); }
+// O parâmetro não pode apontar o visualizador para fora deste site. A conferência é feita sobre o
+// endereço já resolvido pelo navegador, e não sobre o texto do parâmetro: "\\outro.site/a.pdf",
+// "/\outro.site/a.pdf" e um "https://..." precedido de espaço ou tabulação não parecem endereço
+// absoluto para uma expressão regular, e o navegador resolve os três para outro domínio.
+const raizDoSite = new URL("./", location.href);
+const dentroDoSite = (u) => u.origin === raizDoSite.origin && u.pathname.startsWith(raizDoSite.pathname);
+let baseDoDeck = null;
+try { baseDoDeck = new URL(arquivo ?? "", location.href); } catch { /* fica nulo e cai na recusa abaixo */ }
+if (!arquivo || !baseDoDeck || !dentroDoSite(baseDoDeck)) { location.replace("./"); throw new Error("deck inválido"); }
 // A animação mora ao lado do PDF, e o link gravado no PDF é relativo a ele.
-const baseDoDeck = new URL(arquivo, location.href);
 // O fragmento opcional (#cenario) diz em que cenário a animação abre.
 const ANIMACAO = /^(?![a-z]+:)(?:\.\/)?[^/?#]*animacao-[^/?#]+\.html(?:#[\w-]+)?$/i;
-$("baixar").href = arquivo;
-const MOLDURA_SLIDE = new URLSearchParams(location.search).get("moldura") === "slide";
+$("baixar").href = baseDoDeck.href;
+// moldura=cheia: a animação ocupa a página inteira, como sem o parâmetro, mas é pedida no modo cheio
+// (?embutido=cheio), em que ela esconde só a barra de controles; avançar, voltar e a contagem ficam
+// com este visualizador. Animação antiga, que não conhece o modo, ignora o pedido e abre como sempre.
+const MOLDURA = new URLSearchParams(location.search).get("moldura");
+const MOLDURA_SLIDE = MOLDURA === "slide", MOLDURA_CHEIA = MOLDURA === "cheia";
 // Área de conteúdo da página de animação, em cm: as margens que o template de slides dá à página
 // de animação (left 2.97, right 2.91, top 5.4, bottom 2.0). A fração da
 // página sai do tamanho real da página do PDF, em pontos.
@@ -68,9 +78,9 @@ function areaDeConteudo(pagina) {
     width: 1 - m(MARGEM_CM.esq + MARGEM_CM.dir) / width, height: 1 - m(MARGEM_CM.topo + MARGEM_CM.base) / height};
 }
 // O parâmetro do modo embutido vai antes do fragmento, que escolhe o cenário.
-function comEmbutido(endereco) {
+function comEmbutido(endereco, valor = "") {
   const url = new URL(endereco);
-  url.searchParams.set("embutido", "");
+  url.searchParams.set("embutido", valor);
   return url.href;
 }
 
@@ -83,7 +93,10 @@ async function ler(n) {
   const anotacoes = await pagina.getAnnotations();
   const link = anotacoes.find((a) => a.subtype === "Link" && ANIMACAO.test(a.unsafeUrl || a.url || ""));
   const texto = (await pagina.getTextContent()).items.map((i) => i.str).join(" ");
-  const animacao = link ? new URL(link.unsafeUrl || link.url, baseDoDeck).href : null;
+  // O link também é conferido depois de resolvido: a expressão acima aceita barra invertida, que o
+  // navegador trata como barra, e um PDF não pode pôr no quadro uma página de fora deste site.
+  const alvo = link ? new URL(link.unsafeUrl || link.url, baseDoDeck) : null;
+  const animacao = alvo && dentroDoSite(alvo) ? alvo.href : null;
   return (paginas[n] = {pagina, animacao, texto});
 }
 
@@ -104,7 +117,7 @@ async function mostrar(n, voltando = false) {
   caixa.setAttribute("aria-label", `Slide ${atual} de ${pdf.numPages}`);
   if (animacao) {
     const quadro = document.createElement("iframe");
-    quadro.src = MOLDURA_SLIDE ? comEmbutido(animacao) : animacao; quadro.title = "Animação do slide " + atual; quadro.tabIndex = -1;
+    quadro.src = MOLDURA_SLIDE ? comEmbutido(animacao) : MOLDURA_CHEIA ? comEmbutido(animacao, "cheio") : animacao; quadro.title = "Animação do slide " + atual; quadro.tabIndex = -1;
     if (MOLDURA_SLIDE) {
       const a = areaDeConteudo(pagina), pct = (x) => (100 * x).toFixed(4) + "%";
       Object.assign(quadro.style, {inset: "auto", left: pct(a.left), top: pct(a.top), width: pct(a.width), height: pct(a.height), zIndex: "1"});
