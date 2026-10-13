@@ -624,7 +624,10 @@ function preparar(id) {
   const regraCom = REGRA.com.map((n) => marcar("regra", trecho(com, n, REGRA.trecho)));
 
   // Linhas do programa com função, por parte: a definição (com a linha de em_dobro) e as chamadas.
-  const linhasDaDefinicao = com.slice(0, DEFINICAO[1]);
+  // A parte da definição vai até a linha anterior à primeira chamada, e não só até o fim do def:
+  // a linha em branco entre os dois tem número, e fora de um grupo esse número ficaria na tela
+  // desde o primeiro passo, sozinho, antes de a função existir.
+  const linhasDaDefinicao = com.slice(0, BLOCOS[0].chamada - 1);
   const linhasDasChamadas = BLOCOS.map((b) => com[b.chamada - 1]);
 
   // O que cada passo mostra. Cada grupo entra e sai com fade; o que chega por cartão troca no pouso.
