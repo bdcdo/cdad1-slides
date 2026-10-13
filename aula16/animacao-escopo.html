@@ -98,8 +98,9 @@ html.recortado body { position: relative; overflow: clip; }
 #marcador-linha::before { content: "▶"; position: absolute; left: 2px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--contorno); }
 /* Linha que chamou uma função ainda ativa: contorno tracejado e o aviso escrito, sem depender da cor. */
 .espera { position: absolute; left: -4px; right: -4px; border: 2px dashed var(--borda-funcao); border-radius: 3px; z-index: 2; pointer-events: none; }
-.espera span { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font: 600 13px system-ui, sans-serif; color: var(--borda-funcao);
-  background: var(--fundo); padding: 0 5px; border-radius: 3px; white-space: nowrap; }
+/* O aviso é um comentário de Python: com #, na fonte do código e no verde dos comentários. */
+.espera span { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font: 16px/1.4 var(--mono); color: var(--py-comentario);
+  white-space: nowrap; }
 
 #memoria { position: relative; height: 300px; }
 .quadro { position: absolute; left: 0; right: 0; border: 2px solid var(--borda); border-radius: 6px; background: var(--fundo); padding: 4px 10px 6px; }
@@ -111,6 +112,19 @@ html.recortado body { position: relative; overflow: clip; }
 .quadro.compacto .variavel { grid-template-columns: 6.2em minmax(0, 1fr); }
 .variavel { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); gap: 8px; margin-top: 4px; }
 .variavel code { font: 700 16px var(--mono); padding-top: 3px; overflow-wrap: anywhere; }
+/* Cabeçalho das colunas de um quadro de chamada, e legenda no quadro de duas colunas. */
+.variavel.cabecalho span, .legenda { font: 600 12px system-ui, sans-serif; color: var(--apoio); }
+.legenda { grid-column: 1 / -1; margin-top: 2px; }
+.sem-variavel { position: absolute; left: 10px; font: italic 15px system-ui, sans-serif; color: var(--apoio); }
+/* Cartão das funções que o def já registrou, acima dos quadros: uma faixa de uma linha, para não
+   tirar dos quadros a altura do painel. */
+.funcoes { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: baseline; gap: 10px; border: 2px dashed var(--borda-funcao);
+  border-radius: 6px; background: var(--fundo); padding: 3px 10px 4px; }
+.funcoes h3 { margin: 0; font: 600 15px system-ui, sans-serif; color: var(--texto); white-space: nowrap; }
+.funcoes h3 small { font-weight: 400; color: var(--apoio); }
+.funcoes .lista { position: relative; flex: 1; display: flex; flex-wrap: wrap; gap: 2px 14px; min-height: 21px; }
+.funcoes .lista code { font: 700 15px var(--mono); }
+.funcoes .lista .ausente { position: absolute; left: 0; top: 0; font: italic 15px system-ui, sans-serif; color: var(--apoio); }
 .slot { position: relative; }
 .slot .camada { font: 15px/1.35 var(--mono); overflow-wrap: anywhere; white-space: pre-wrap; padding: 2px 5px; border-radius: 3px; }
 .slot .camada.ausente { font-family: system-ui, sans-serif; color: var(--apoio); font-style: italic; }
@@ -481,8 +495,9 @@ const rastreio = {
 // programa, cada um com a narração dele. Sem DOM, para as suítes e o verificador lerem pelo Node.
 //
 // `narracoes` tem um item a mais que os passos: o primeiro é o estado antes de o programa rodar.
-// Um item pode ser uma lista de textos; cada texto vira um passo com o mesmo estado do programa,
-// para a narração se demorar num ponto sem inventar execução que não houve.
+// Um item pode ser uma lista de textos; eles saem juntos, no mesmo passo. Passo que só troca o
+// texto da narração, com a tela parada, não existe: quem avança um slide espera ver algo mudar.
+// Até 13/10/2026 cada texto da lista virava um passo próprio.
 function montarRastreio(cenario, narracoes, {duracao = 2400} = {}) {
   const {passos} = cenario;
   if (narracoes.length !== passos.length + 1)
@@ -490,8 +505,8 @@ function montarRastreio(cenario, narracoes, {duracao = 2400} = {}) {
   const inicial = {evento: null, linha: null, quadros: [], stdout: []};
   const estados = [];
   [inicial, ...passos].forEach((passo, i) => {
-    const textos = Array.isArray(narracoes[i]) ? narracoes[i] : [narracoes[i]];
-    for (const narr of textos) estados.push(JSON.parse(JSON.stringify({...passo, narr, dur: duracao})));
+    const narr = Array.isArray(narracoes[i]) ? narracoes[i].join(" ") : narracoes[i];
+    estados.push(JSON.parse(JSON.stringify({...passo, narr, dur: duracao})));
   });
   return estados;
 }
@@ -543,9 +558,19 @@ function montar(id) {
 // - o marcador desliza até a linha que acabou de executar;
 // - valor novo de variável viaja em cartão, em arco, da linha até o lugar dele no quadro;
 // - na chamada, cada argumento viaja da linha que chamou até o parâmetro, e o quadro da função
-//   aparece; no return, o valor viaja da linha do return até a linha que chamou, e o quadro some;
-// - a linha que espera um return fica com contorno tracejado e o aviso escrito;
+//   aparece; no return, o valor viaja da linha do return até o nome da variável que vai recebê-lo,
+//   na linha que chamou, e o quadro some;
+// - a linha que espera um return fica com contorno tracejado e um comentário de Python, com # e
+//   em verde, porque o que se escreve ao lado do código é comentário e tem de parecer um;
 // - print viaja até o terminal; erro aparece no terminal e para o programa.
+//
+// Quatro regras de 13/10/2026, pedidas pelo Bruno e válidas para toda animação de rastreio:
+// - a memória não adianta o programa: a linha de uma variável só aparece quando ela é criada;
+// - as funções que o `def` já registrou ficam listadas num cartão, acima dos quadros, a partir do
+//   passo em que o `def` roda, para "definir não executa" estar na tela e não só na narração;
+// - no quadro de uma chamada, os parâmetros vêm sob o cabeçalho "parâmetro (variável)" e
+//   "argumento (valor)", e as variáveis criadas dentro da função, sob "variável local";
+// - nenhum passo muda só a narração (ver rastreio-estados.js).
 // ---- ./comum.js ----
 // Peças que todas as animações compartilham: durações do roteiro, pilha de textos por passo,
 // medição no espaço do palco, voo de cartão, tocador sobre a timeline, teclas e escala do palco.
@@ -910,6 +935,10 @@ function colorirPython(linha) {
 
 const MAX_SAIDA = 4, ALTURA_SAIDA = 21, ESPACO_QUADROS = 10;
 const TESTE = /^\s*(?:if|elif|while)\s+(.*?):\s*(?:#.*)?$/;
+// `def` no nível do programa: é o que entra no cartão de funções definidas.
+const DEFINICAO = /^def\s+(\w+)\s*\((.*)\)\s*:/;
+// Linha que guarda numa variável o que a chamada devolve: `nome = f(...)`.
+const ATRIBUICAO = /^\s*([A-Za-z_]\w*)\s*=(?!=)/;
 
 function paginaRastreio({animacao, cenarios, montar, codigo, titulo, tipo}) {
   gsap.registerPlugin(MotionPathPlugin, DrawSVGPlugin);
@@ -938,6 +967,22 @@ function paginaRastreio({animacao, cenarios, montar, codigo, titulo, tipo}) {
     });
     const valorEm = (s, fid, nome) => s.quadros.find((q) => q.id === fid)?.vars[nome] ?? null;
     const presente = (s, fid) => s.quadros.some((q) => q.id === fid);
+
+    // Funções definidas: uma por `def` do nível do programa, a partir do passo em que a linha roda.
+    const definidas = [];
+    estados.forEach((s, i) => {
+      const m = s.evento === "linha" && s.linha !== null && s.quadros.length === 1 ? linhas[s.linha - 1].match(DEFINICAO) : null;
+      if (m && !definidas.some((d) => d.nome === m[1])) definidas.push({nome: m[1], assinatura: `${m[1]}(${m[2].trim()})`, desde: i});
+    });
+    let alturaFuncoes = 0;
+    if (definidas.length) {
+      const cartao = $("memoria").appendChild(criarEl("div", "funcoes", `<h3>funções definidas</h3><div class="lista"></div>`));
+      const vazio = cartao.querySelector(".lista").appendChild(criarEl("span", "ausente", "nenhuma ainda"));
+      for (const d of definidas) d.el = cartao.querySelector(".lista").appendChild(criarEl("code", null, escapar(d.assinatura)));
+      definidas.vazio = vazio;
+      alturaFuncoes = cartao.offsetHeight + ESPACO_QUADROS;
+    }
+
     for (const [fid, r] of quadros) {
       const funcao = r.profundidade > 0;
       r.el = $("memoria").appendChild(criarEl("div", "quadro" + (funcao ? " funcao" : ""),
@@ -945,20 +990,45 @@ function paginaRastreio({animacao, cenarios, montar, codigo, titulo, tipo}) {
       // Quadro com três ou mais variáveis de valor curto ocupa duas colunas, para caber empilhado.
       const curtos = estados.every((s) => r.nomes.every((nome) => (valorEm(s, fid, nome) ?? "").length <= 14));
       if (r.nomes.length >= 3 && curtos) r.el.classList.add("compacto");
-      if (!r.nomes.length) r.el.appendChild(criarEl("div", "variavel", `<span class="ausente" style="color:var(--apoio);font-style:italic">nenhuma variável ainda</span>`));
-      r.pilhas = Object.fromEntries(r.nomes.map((nome) => {
+      // Parâmetro é o nome que já existe quando o quadro nasce; o resto é variável local.
+      const nascimento = estados.find((s) => presente(s, fid));
+      const parametros = funcao ? r.nomes.filter((nome) => valorEm(nascimento, fid, nome) !== null) : [];
+      const locais = r.nomes.filter((nome) => !parametros.includes(nome));
+      const compacto = r.el.classList.contains("compacto");
+      // "nenhuma variável ainda" ocupa o lugar da primeira linha enquanto o quadro não tem nenhuma.
+      r.vazio = r.el.appendChild(criarEl("div", "sem-variavel", "nenhuma variável ainda"));
+      r.linhas = {};
+      r.rotulos = [];
+      const cabecalho = (classe, html, nomes) => {
+        const el = r.el.appendChild(criarEl("div", classe, html));
+        r.rotulos.push({el, nomes});
+      };
+      if (parametros.length && !compacto) cabecalho("variavel cabecalho", `<span>parâmetro (variável)</span><span>argumento (valor)</span>`, parametros);
+      if (parametros.length && compacto) cabecalho("legenda", `parâmetros (variáveis) que receberam os argumentos (valores): ${parametros.map(escapar).join(", ")}`, parametros);
+      r.pilhas = {};
+      const linhaDe = (nome) => {
         const linha = r.el.appendChild(criarEl("div", "variavel", `<code>${escapar(nome)}</code><div class="slot"></div>`));
         const slot = linha.querySelector(".slot");
+        // A camada de "ainda não existe" fica vazia: a linha inteira está escondida nesses passos.
         const pilha = criarPilha(slot, estados.map((s) => valorEm(s, fid, nome)),
-          (v) => v === null ? criarEl("div", "ausente", "ainda não existe") : criarEl("div", "valor", escapar(v)));
+          (v) => v === null ? criarEl("div", "ausente", "") : criarEl("div", "valor", escapar(v)));
         slot.style.height = Math.max(...pilha.elementos.map((el) => el.offsetHeight)) + "px";
-        return [nome, pilha];
-      }));
+        r.pilhas[nome] = pilha;
+        r.linhas[nome] = linha;
+      };
+      parametros.forEach(linhaDe);
+      if (funcao && parametros.length && locais.length && !compacto) cabecalho("variavel cabecalho", `<span>variável local</span><span>valor</span>`, locais);
+      locais.forEach(linhaDe);
+      r.vazio.style.top = (r.linhas[r.nomes[0]] ?? r.vazio).offsetTop + "px";
     }
-    // Empilha por profundidade: cada nível começa abaixo do mais baixo do nível anterior.
+    // Uma linha, ou um cabeçalho, aparece no passo em que a primeira variável dele passa a existir.
+    const existe = (s, fid, nome) => valorEm(s, fid, nome) !== null;
+    const algumExiste = (s, fid, nomes) => nomes.some((nome) => existe(s, fid, nome));
+    // Empilha por profundidade: cada nível começa abaixo do mais baixo do nível anterior. O
+    // cartão de funções definidas, quando existe, fica acima de todos.
     const fundoDoNivel = [];
     for (const r of quadros.values()) {
-      const topo = r.profundidade === 0 ? 0 : (fundoDoNivel[r.profundidade - 1] ?? 0) + ESPACO_QUADROS;
+      const topo = r.profundidade === 0 ? alturaFuncoes : (fundoDoNivel[r.profundidade - 1] ?? 0) + ESPACO_QUADROS;
       r.el.style.top = topo + "px";
       fundoDoNivel[r.profundidade] = Math.max(fundoDoNivel[r.profundidade] ?? 0, topo + r.el.offsetHeight);
     }
@@ -966,20 +1036,20 @@ function paginaRastreio({animacao, cenarios, montar, codigo, titulo, tipo}) {
 
     // Linha que espera o return: uma por chamada.
     const esperas = new Map([...quadros].filter(([, r]) => r.profundidade > 0).map(([fid, r]) => {
-      const el = $("codigo").appendChild(criarEl("div", "espera", `<span>espera o return de ${escapar(r.q.nome)}</span>`));
+      const el = $("codigo").appendChild(criarEl("div", "espera", `<span># espera o return de ${escapar(r.q.nome)}</span>`));
       const pos = posLinha(r.q.chamador);
       Object.assign(el.style, {top: pos.y + "px", height: pos.height + "px"});
-      // O aviso vai depois do fim do texto da linha, para não cobrir o argumento da chamada; se não
-      // couber inteiro, fica só "espera o return".
+      // O comentário vai depois do fim do texto da linha, para não cobrir o argumento da chamada; se
+      // não couber inteiro, fica só "# espera o return".
       const aviso = el.querySelector("span"), fimTexto = caixaTrecho(textoDaLinha(r.q.chamador), linhas[r.q.chamador - 1].trimEnd());
       const moldura = caixa(el), livre = moldura.x + moldura.w - (fimTexto.x + fimTexto.w) - 14;
-      if (aviso.offsetWidth > livre) { aviso.textContent = "espera o return"; el.encurtado = true; }
+      if (aviso.offsetWidth > livre) { aviso.textContent = "# espera o return"; el.encurtado = true; }
       if (aviso.offsetWidth > livre) console.error(`${animacao}/${id}: o aviso da linha ${r.q.chamador} cobre o código`);
-      Object.assign(aviso.style, {right: "auto", left: (fimTexto.x + fimTexto.w - moldura.x + 10) + "px"});
+      Object.assign(aviso.style, {right: "auto", left: (fimTexto.x + fimTexto.w - moldura.x + 14) + "px"});
       return [fid, el];
     }));
     // Um aviso encurtado encurta todos, para o mesmo aviso não mudar de texto ao longo da animação.
-    if ([...esperas.values()].some((el) => el.encurtado)) for (const el of esperas.values()) el.querySelector("span").textContent = "espera o return";
+    if ([...esperas.values()].some((el) => el.encurtado)) for (const el of esperas.values()) el.querySelector("span").textContent = "# espera o return";
 
     // Consulta: o teste do if/elif/while, ou o valor do return.
     const consultaDe = (s) => {
@@ -1039,9 +1109,13 @@ function paginaRastreio({animacao, cenarios, montar, codigo, titulo, tipo}) {
           p.voos.push({cartao: novoCartao(v, "", caixa(destino)), origem, pousa: r.pilhas[nome]});
         }
       }
-      // O return leva o valor até a linha que chamou.
+      // O return leva o valor até quem vai recebê-lo na linha que chamou: o nome da variável, numa
+      // atribuição; sem atribuição (print(f(x)), return f(x)), o nome da função chamada. Nunca o
+      // comentário de espera, que é aviso e não lugar de valor.
       if (s.evento === "retorno") {
-        const quem = s.quadros.at(-1), chegada = fimDaLinha(quem.chamador);
+        const quem = s.quadros.at(-1), el = textoDaLinha(quem.chamador), texto = linhas[quem.chamador - 1];
+        const alvo = texto.match(ATRIBUICAO)?.[1] ?? quem.nome;
+        const b = caixaTrecho(el, alvo), chegada = b ? {x: b.x - 6, y: b.y - 3} : fimDaLinha(quem.chamador);
         p.voos.push({cartao: novoCartao(s.retorno, "retorno-voo", chegada), origem: caixa(textoDaLinha(s.linha)), some: true});
       }
       const saidaAntes = a.stdout.length, saidaAgora = s.stdout.length;
@@ -1052,8 +1126,15 @@ function paginaRastreio({animacao, cenarios, montar, codigo, titulo, tipo}) {
       return p;
     });
 
-    // Passo 0: nada rodou.
+    // Passo 0: nada rodou. As linhas e os cabeçalhos de cada quadro começam escondidos e só
+    // aparecem com a variável; o estado inicial de cada um é o do passo 0.
     gsap.set([marcador, ...linhasSaida, ...esperas.values(), ...[...quadros.values()].map((r) => r.el)], {autoAlpha: 0});
+    for (const [fid, r] of quadros) {
+      for (const nome of r.nomes) gsap.set(r.linhas[nome], {autoAlpha: existe(estados[0], fid, nome) ? 1 : 0});
+      for (const rot of r.rotulos) gsap.set(rot.el, {autoAlpha: algumExiste(estados[0], fid, rot.nomes) ? 1 : 0});
+      gsap.set(r.vazio, {autoAlpha: algumExiste(estados[0], fid, r.nomes) ? 0 : 1});
+    }
+    for (const d of definidas) gsap.set(d.el, {autoAlpha: d.desde === 0 ? 1 : 0});
     gsap.set(passos.filter((p) => p.trecho).map((p) => p.trecho), {autoAlpha: 0});
 
     const tl = gsap.timeline({paused: true});
@@ -1080,12 +1161,21 @@ function paginaRastreio({animacao, cenarios, montar, codigo, titulo, tipo}) {
         if (esp && !antes && agora) fade(esp, 1, t);
         if (esp && antes && !agora) fade(esp, 0, t);
       }
+      // Linha de variável, cabeçalho e "nenhuma variável ainda": aparecem e somem com a variável.
+      for (const [fid, r] of quadros) {
+        const troca = (el, antes, agora) => { if (antes !== agora) fade(el, agora ? 1 : 0, t); };
+        for (const nome of r.nomes) troca(r.linhas[nome], existe(a, fid, nome), existe(s, fid, nome));
+        for (const rot of r.rotulos) troca(rot.el, algumExiste(a, fid, rot.nomes), algumExiste(s, fid, rot.nomes));
+        troca(r.vazio, !algumExiste(a, fid, r.nomes), !algumExiste(s, fid, r.nomes));
+      }
+      // Função que o def acabou de registrar entra no cartão de funções definidas.
+      for (const d of definidas) if (d.desde === i) { fade(d.el, 1, t); if (d === definidas[0]) fade(definidas.vazio, 0, t); }
       for (const v of p.voos) {
         const chegada = voar(tl, v.cartao, v.origem, {x: parseFloat(v.cartao.style.left), y: parseFloat(v.cartao.style.top)}, t);
         if (v.pousa) v.pousa.transicao(tl, i, t, chegada);
         if (v.saida) { tl.set(v.saida, {autoAlpha: 1}, chegada); if (v.k === 0) tl.set(nenhumaSaida, {autoAlpha: 0}, chegada); }
       }
-      // Valor que mudou sem cartão (quadro que some, ou volta a "ainda não existe"): fade simples.
+      // Valor que mudou sem cartão (quadro que some, ou variável que deixa de existir): fade simples.
       for (const r of quadros.values()) for (const nome of r.nomes)
         if (!p.voos.some((v) => v.pousa === r.pilhas[nome])) r.pilhas[nome].transicao(tl, i, t);
       if (s.erro && !a.erro) { const el = linhasSaida[linhasSaida.length - 1]; fade(el, 1, t); if (!s.stdout.length) fade(nenhumaSaida, 0, t); }
