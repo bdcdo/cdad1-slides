@@ -16,7 +16,17 @@ Com `&moldura=cheia` no endereço, que é como a página inicial abre toda aula,
 - `ver.html?deck=aulaNN/aulaNN.pdf#N`: abre o deck na página N.
 - `aulaNN/`: o PDF da aula e as animações que ele referencia.
 - Aula ainda não dada pode estar publicada sem aparecer na página inicial: abre pelo endereço direto e entra em `aulas.json` depois da aula.
+- `tribunal-ficticio/`: o tribunal inventado das aulas de requisição e raspagem, descrito abaixo.
 - `pdfjs/`: pdf.js 6.3.289, da Mozilla, sob a licença Apache 2.0 em `pdfjs/LICENSE`. Fica no repositório para o site não depender de CDN.
+
+## Tribunal fictício
+
+`tribunal-ficticio/` é um tribunal inventado, para as aulas de requisição e de raspagem: a turma faz os primeiros pedidos com `requests` a um endereço que é do curso, sem depender de tribunal de verdade nem arriscar bloqueio. Nada ali é real: o tribunal de código 99 não existe, e partes e processos são inventados.
+
+- `tribunal-ficticio/decisoes.html`: página HTML com as decisões recentes, para raspagem com `find` e `find_all`.
+- `tribunal-ficticio/api/`: documentação da API de mentira. Os dados saem em JSON: um processo por arquivo em `api/processos/NUMERO.json`, a lista inteira em `api/processos.json` e uma busca paginada em `api/decisoes/pagina-N.json`.
+
+O site é estático, e por isso a API só responde a GET, ignora o que vem depois de `?` no endereço e devolve 404 em HTML para o que não existe. Os arquivos são gerados por `python3 tribunal-ficticio/gerar.py`, que guarda os dados; editar um arquivo gerado à mão desalinha os outros.
 
 ## Ver localmente
 

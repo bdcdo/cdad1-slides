@@ -1,0 +1,28 @@
+{
+  "numero": "0000101-95.2026.8.99.0001",
+  "classe": "Procedimento Comum",
+  "partes": {
+    "autor": "Marina Alves",
+    "reu": "Banco Fictício"
+  },
+  "assunto": "Dano moral",
+  "valor_da_causa_sm": 60,
+  "decisao": {
+    "data": "14/09/2026",
+    "resultado": "improcedente"
+  },
+  "movimentos": [
+    {
+      "ordem": 1,
+      "descricao": "Distribuição"
+    },
+    {
+      "ordem": 2,
+      "descricao": "Citação"
+    },
+    {
+      "ordem": 3,
+      "descricao": "Sentença"
+    }
+  ]
+}

@@ -1,0 +1,198 @@
+[
+  {
+    "numero": "0000101-95.2026.8.99.0001",
+    "classe": "Procedimento Comum",
+    "partes": {
+      "autor": "Marina Alves",
+      "reu": "Banco Fictício"
+    },
+    "assunto": "Dano moral",
+    "valor_da_causa_sm": 60,
+    "decisao": {
+      "data": "14/09/2026",
+      "resultado": "improcedente"
+    },
+    "movimentos": [
+      {
+        "ordem": 1,
+        "descricao": "Distribuição"
+      },
+      {
+        "ordem": 2,
+        "descricao": "Citação"
+      },
+      {
+        "ordem": 3,
+        "descricao": "Sentença"
+      }
+    ]
+  },
+  {
+    "numero": "0000202-35.2026.8.99.0001",
+    "classe": "Juizado Especial",
+    "partes": {
+      "autor": "Otávio Bastos",
+      "reu": "Loja Fictícia"
+    },
+    "assunto": "Dano moral",
+    "valor_da_causa_sm": 15,
+    "decisao": {
+      "data": "15/09/2026",
+      "resultado": "procedente"
+    },
+    "movimentos": [
+      {
+        "ordem": 1,
+        "descricao": "Distribuição"
+      },
+      {
+        "ordem": 2,
+        "descricao": "Citação"
+      },
+      {
+        "ordem": 3,
+        "descricao": "Sentença"
+      }
+    ]
+  },
+  {
+    "numero": "0000303-72.2026.8.99.0001",
+    "classe": "Execução Fiscal",
+    "partes": {
+      "autor": "Município Fictício",
+      "reu": "Carlos Souza"
+    },
+    "assunto": "Dívida ativa",
+    "valor_da_causa_sm": 120,
+    "decisao": {
+      "data": "16/09/2026",
+      "resultado": "procedente"
+    },
+    "movimentos": [
+      {
+        "ordem": 1,
+        "descricao": "Distribuição"
+      },
+      {
+        "ordem": 2,
+        "descricao": "Citação"
+      },
+      {
+        "ordem": 3,
+        "descricao": "Sentença"
+      }
+    ]
+  },
+  {
+    "numero": "0000404-12.2026.8.99.0001",
+    "classe": "Procedimento Comum",
+    "partes": {
+      "autor": "Helena Prado",
+      "reu": "Operadora Fictícia"
+    },
+    "assunto": "Dano moral",
+    "valor_da_causa_sm": 45,
+    "decisao": {
+      "data": "17/09/2026",
+      "resultado": "procedente"
+    },
+    "movimentos": [
+      {
+        "ordem": 1,
+        "descricao": "Distribuição"
+      },
+      {
+        "ordem": 2,
+        "descricao": "Citação"
+      },
+      {
+        "ordem": 3,
+        "descricao": "Sentença"
+      }
+    ]
+  },
+  {
+    "numero": "0000505-49.2026.8.99.0001",
+    "classe": "Juizado Especial",
+    "partes": {
+      "autor": "Rafael Nunes",
+      "reu": "Banco Fictício"
+    },
+    "assunto": "Cobrança indevida",
+    "valor_da_causa_sm": 8,
+    "decisao": {
+      "data": "18/09/2026",
+      "resultado": "procedente"
+    },
+    "movimentos": [
+      {
+        "ordem": 1,
+        "descricao": "Distribuição"
+      },
+      {
+        "ordem": 2,
+        "descricao": "Citação"
+      },
+      {
+        "ordem": 3,
+        "descricao": "Sentença"
+      }
+    ]
+  },
+  {
+    "numero": "0000606-86.2026.8.99.0001",
+    "classe": "Juizado Especial",
+    "partes": {
+      "autor": "Lívia Rocha",
+      "reu": "Companhia Aérea Fictícia"
+    },
+    "assunto": "Dano moral",
+    "valor_da_causa_sm": 20,
+    "decisao": {
+      "data": "21/09/2026",
+      "resultado": "improcedente"
+    },
+    "movimentos": [
+      {
+        "ordem": 1,
+        "descricao": "Distribuição"
+      },
+      {
+        "ordem": 2,
+        "descricao": "Citação"
+      },
+      {
+        "ordem": 3,
+        "descricao": "Sentença"
+      }
+    ]
+  },
+  {
+    "numero": "0000707-26.2026.8.99.0001",
+    "classe": "Procedimento Comum",
+    "partes": {
+      "autor": "Sérgio Lima",
+      "reu": "Loja Fictícia"
+    },
+    "assunto": "Cobrança indevida",
+    "valor_da_causa_sm": 75,
+    "decisao": {
+      "data": "22/09/2026",
+      "resultado": "improcedente"
+    },
+    "movimentos": [
+      {
+        "ordem": 1,
+        "descricao": "Distribuição"
+      },
+      {
+        "ordem": 2,
+        "descricao": "Citação"
+      },
+      {
+        "ordem": 3,
+        "descricao": "Sentença"
+      }
+    ]
+  }
+]

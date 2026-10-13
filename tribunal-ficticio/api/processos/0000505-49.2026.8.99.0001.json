@@ -1,0 +1,28 @@
+{
+  "numero": "0000505-49.2026.8.99.0001",
+  "classe": "Juizado Especial",
+  "partes": {
+    "autor": "Rafael Nunes",
+    "reu": "Banco Fictício"
+  },
+  "assunto": "Cobrança indevida",
+  "valor_da_causa_sm": 8,
+  "decisao": {
+    "data": "18/09/2026",
+    "resultado": "procedente"
+  },
+  "movimentos": [
+    {
+      "ordem": 1,
+      "descricao": "Distribuição"
+    },
+    {
+      "ordem": 2,
+      "descricao": "Citação"
+    },
+    {
+      "ordem": 3,
+      "descricao": "Sentença"
+    }
+  ]
+}
