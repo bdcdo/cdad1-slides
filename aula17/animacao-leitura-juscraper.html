@@ -160,8 +160,9 @@ svg#setas-notas .misterio polygon { fill: var(--realce); }
 // Aula 17: o programa do juscraper, lido de novo no fim da aula. A turma viu o programa sem
 // explicação e disse o que não entendia; aqui cada nota aponta, com setas, os trechos que já dá
 // para ler (objetos, métodos, atributo, argumento nomeado) e o que continua mistério. As notas são
-// comentários de Python, ao lado do código. A cada passo entra uma nota, com as setas dela; as
-// setas da nota anterior saem, e o comentário e os contornos ficam.
+// comentários de Python, ao lado do código. A cada passo entra uma nota, com os contornos e as
+// setas dela, e a anterior sai inteira: a tela mostra só o destaque da vez, a pedido do Bruno em
+// 13/10/2026 (na primeira versão os comentários e os contornos anteriores ficavam).
 //
 // O programa é o do deck (`programa-juscraper`, em aulas/aula17/aula17.typ), e a suíte
 // test-animacao-leitura-juscraper.py confere que os dois são iguais e que cada nota aponta
@@ -213,9 +214,9 @@ const NARRACOES = [
   "Ainda é mistério: o import e o jus que ele cria, os colchetes de dados[\"assunto\"] e de que classe são esses objetos.",
 ];
 
-// `notas` diz quantas notas já estão na tela; a última delas é a que tem as setas.
+// `nota` diz qual nota está na tela, contando de 1; 0 é o programa sem nota nenhuma.
 function montar() {
-  return NARRACOES.map((narr, notas) => ({notas, narr, dur: 4200}));
+  return NARRACOES.map((narr, nota) => ({nota, narr, dur: 4200}));
 }
 const linhasPython = () => PROGRAMA;
 
@@ -645,12 +646,13 @@ function preparar(id) {
   tl.addLabel("p0", 0);
   estados.forEach((s, i) => {
     if (i === 0) return;
-    const t = tl.duration() + 0.001, nova = notas[s.notas - 1], anterior = notas[s.notas - 2];
+    const t = tl.duration() + 0.001, nova = notas[s.nota - 1], anterior = notas[s.nota - 2];
     tl.to({}, {duration: 0.4}, t);
     narracao.transicao(tl, i, t);
-    // As setas da nota anterior saem; o comentário e os contornos dela ficam.
+    // A nota anterior sai inteira (comentário, contornos e setas), para a tela ficar só com o
+    // destaque da vez.
     if (anterior) {
-      fade(tl, anterior.pontas, 1, 0, t);
+      fade(tl, [anterior.comentario, ...anterior.contornos, ...anterior.pontas], 1, 0, t);
       tl.fromTo(anterior.setas, {drawSVG: "100%", autoAlpha: 1}, {autoAlpha: 0, duration: DUR.narracao, ease: "none", immediateRender: false}, t);
     }
     fade(tl, [nova.comentario, ...nova.contornos], 0, 1, t);
