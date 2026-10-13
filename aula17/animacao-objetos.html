@@ -206,9 +206,12 @@ html.recortado body { position: relative; overflow: clip; }
 </div></div>
 <div id="controles"></div>
 <script type="module">// ---- ./estados.js ----
-// Aula 17: uma classe simples. Processo(...) cria um objeto; __init__ recebe o objeto novo em self e
-// grava os atributos; o método recebe em self o objeto da chamada. Depois, uma lista de objetos
-// percorrida com for, como a turma já fazia com dicionários.
+// Aula 17: uma classe simples. Parte(...) cria um objeto; __init__ recebe o objeto novo em self e
+// grava os atributos; o método recebe em self o objeto da chamada. O cenário "criar" usa a classe
+// Parte (nome, idade, tem_prioridade), a mesma que o deck da aula 17 constrói linha a linha antes
+// de a animação entrar: ela confirma o que a turma já leu, e não apresenta. Até 13/10/2026 o
+// cenário usava Processo, com classe e valor (cópia em backups/objetos-processo-20261013/).
+// O cenário "lista", com Processo, saiu da aula 17 e espera a revisão de classes da aula 19.
 // ---- ./rastreio.js ----
 // Gerado por rastreio.py a partir dos .py desta pasta. Não editar à mão:
 // mudar o programa e rodar o rastreio de novo.
@@ -216,17 +219,17 @@ const rastreio = {
  "criar": {
   "rotulo": "Criar um objeto",
   "codigo": [
-   "class Processo:",
-   "    def __init__(self, classe, valor):",
-   "        self.classe = classe",
-   "        self.valor = valor",
+   "class Parte:",
+   "    def __init__(self, nome, idade):",
+   "        self.nome = nome",
+   "        self.idade = idade",
    "",
-   "    def alto_valor(self):",
-   "        return self.valor > 10000",
+   "    def tem_prioridade(self):",
+   "        return self.idade >= 60",
    "",
-   "caso = Processo(\"Cível\", 25000)",
-   "print(caso.classe)",
-   "print(caso.alto_valor())"
+   "autora = Parte(\"Ana Lima\", 66)",
+   "print(autora.nome)",
+   "print(autora.tem_prioridade())"
   ],
   "passos": [
    {
@@ -254,12 +257,12 @@ const rastreio = {
      },
      {
       "id": 1,
-      "nome": "Processo.__init__",
+      "nome": "Parte.__init__",
       "chamador": 9,
       "vars": {
-       "self": "<Processo>",
-       "classe": "'Cível'",
-       "valor": "25000"
+       "self": "<Parte>",
+       "nome": "'Ana Lima'",
+       "idade": "66"
       }
      }
     ],
@@ -277,12 +280,12 @@ const rastreio = {
      },
      {
       "id": 1,
-      "nome": "Processo.__init__",
+      "nome": "Parte.__init__",
       "chamador": 9,
       "vars": {
-       "self": "<Processo classe='Cível'>",
-       "classe": "'Cível'",
-       "valor": "25000"
+       "self": "<Parte nome='Ana Lima'>",
+       "nome": "'Ana Lima'",
+       "idade": "66"
       }
      }
     ],
@@ -301,12 +304,12 @@ const rastreio = {
      },
      {
       "id": 1,
-      "nome": "Processo.__init__",
+      "nome": "Parte.__init__",
       "chamador": 9,
       "vars": {
-       "self": "<Processo classe='Cível' valor=25000>",
-       "classe": "'Cível'",
-       "valor": "25000"
+       "self": "<Parte nome='Ana Lima' idade=66>",
+       "nome": "'Ana Lima'",
+       "idade": "66"
       }
      }
     ],
@@ -321,7 +324,7 @@ const rastreio = {
       "nome": "programa",
       "chamador": null,
       "vars": {
-       "caso": "<Processo classe='Cível' valor=25000>"
+       "autora": "<Parte nome='Ana Lima' idade=66>"
       }
      }
     ],
@@ -336,12 +339,12 @@ const rastreio = {
       "nome": "programa",
       "chamador": null,
       "vars": {
-       "caso": "<Processo classe='Cível' valor=25000>"
+       "autora": "<Parte nome='Ana Lima' idade=66>"
       }
      }
     ],
     "stdout": [
-     "Cível"
+     "Ana Lima"
     ]
    },
    {
@@ -353,20 +356,20 @@ const rastreio = {
       "nome": "programa",
       "chamador": null,
       "vars": {
-       "caso": "<Processo classe='Cível' valor=25000>"
+       "autora": "<Parte nome='Ana Lima' idade=66>"
       }
      },
      {
       "id": 2,
-      "nome": "Processo.alto_valor",
+      "nome": "Parte.tem_prioridade",
       "chamador": 11,
       "vars": {
-       "self": "<Processo classe='Cível' valor=25000>"
+       "self": "<Parte nome='Ana Lima' idade=66>"
       }
      }
     ],
     "stdout": [
-     "Cível"
+     "Ana Lima"
     ]
    },
    {
@@ -379,20 +382,20 @@ const rastreio = {
       "nome": "programa",
       "chamador": null,
       "vars": {
-       "caso": "<Processo classe='Cível' valor=25000>"
+       "autora": "<Parte nome='Ana Lima' idade=66>"
       }
      },
      {
       "id": 2,
-      "nome": "Processo.alto_valor",
+      "nome": "Parte.tem_prioridade",
       "chamador": 11,
       "vars": {
-       "self": "<Processo classe='Cível' valor=25000>"
+       "self": "<Parte nome='Ana Lima' idade=66>"
       }
      }
     ],
     "stdout": [
-     "Cível"
+     "Ana Lima"
     ]
    },
    {
@@ -404,12 +407,12 @@ const rastreio = {
       "nome": "programa",
       "chamador": null,
       "vars": {
-       "caso": "<Processo classe='Cível' valor=25000>"
+       "autora": "<Parte nome='Ana Lima' idade=66>"
       }
      }
     ],
     "stdout": [
-     "Cível",
+     "Ana Lima",
      "True"
     ]
    }
@@ -870,22 +873,22 @@ const CAMPOS_DO_PROGRAMA = ["evento", "linha", "condicao", "retorno", "erro", "q
 const animacao = "objetos";
 const destino = "aula17/animacao-objetos.html";
 const cenarios = Object.entries(rastreio).map(([id, c]) => ({id, rotulo: c.rotulo}));
-const titulo = () => "Uma classe Processo";
+const titulo = (id) => id === "criar" ? "Uma classe Parte" : "Uma classe Processo";
 const tipo = (id) => id === "criar" ? "__init__, self, atributo e método" : "uma lista de objetos, percorrida com for";
 const codigo = (id) => rastreio[id].codigo;
 
 const NARRACOES = {
   criar: [
     "Aperte espaço para tocar. Setas avançam e voltam um passo.",
-    "O class guarda o molde Processo, com duas funções dentro. Nada roda ainda.",
-    ["Processo(...) cria um objeto vazio e chama __init__.", "self é o objeto que está nascendo; classe e valor são os argumentos."],
-    "self.classe = classe grava o primeiro atributo no objeto.",
-    "self.valor = valor grava o segundo. O __init__ não tem return: devolve None, e o objeto já está pronto.",
-    "caso guarda o objeto, com os dois atributos.",
-    "caso.classe lê um atributo. O ponto quer dizer: dentro deste objeto.",
-    "caso.alto_valor() chama o método. self recebe o próprio caso.",
-    "self.valor > 10000 é True, e o return devolve True.",
-    "O print mostra True. Método é uma função que já sabe de qual objeto está falando.",
+    "O class guarda o molde Parte, com duas funções dentro. Nada roda ainda.",
+    ["Parte(...) cria um objeto novo e chama __init__, que preenche a ficha.", "self é o objeto que acabou de nascer; nome e idade são os argumentos."],
+    "self.nome = nome guarda o nome no objeto.",
+    "self.idade = idade guarda a idade. O objeto está pronto.",
+    "autora guarda o objeto, com os dois atributos.",
+    "autora.nome lê um atributo: o nome guardado neste objeto.",
+    "autora.tem_prioridade() chama o método. self é a própria autora.",
+    "66 >= 60 é True, e o return devolve True.",
+    "O print mostra True.",
   ],
   lista: [
     "Aperte espaço para tocar. Setas avançam e voltam um passo.",
