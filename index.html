@@ -46,7 +46,7 @@ fetch("aulas.json").then((r) => r.json()).then((aulas) => {
   if (!aulas.length) { lista.innerHTML = '<li class="vazio">Nenhum deck publicado ainda.</li>'; return; }
   lista.innerHTML = aulas.map((a) => `<li class="aula">
     <div class="cabeca"><span class="numero">Aula ${escapar(a.aula)}</span><span class="titulo">${escapar(a.titulo)}</span><span class="data">${escapar(a.data)}</span></div>
-    <p class="decks"><a href="ver.html?deck=${encodeURIComponent(a.arquivo)}">Ver os slides</a><a class="pdf" href="${escapar(a.arquivo)}" download>PDF</a></p>
+    <p class="decks"><a href="ver.html?deck=${encodeURIComponent(a.arquivo)}${a.moldura === "slide" ? "&moldura=slide" : ""}">Ver os slides</a><a class="pdf" href="${escapar(a.arquivo)}" download>PDF</a></p>
   </li>`).join("");
 }).catch(() => { document.getElementById("aulas").innerHTML = '<li class="vazio">Não consegui carregar a lista de aulas.</li>'; });
 </script>

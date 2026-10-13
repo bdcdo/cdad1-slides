@@ -39,6 +39,10 @@ html, body { margin: 0; height: 100%; background: var(--fundo); color: var(--tex
 // animação (`animacao-*.html`), troca a página inteira pela animação interativa.
 // O deck continua sendo o PDF; o visualizador só lê o que já está nele.
 // Uso: ver.html?deck=aula25/aula25.pdf#3 abre o deck na página 3.
+// Com &moldura=slide (opt-in; sem ele, nada muda), a página de animação é desenhada como um slide
+// comum, com seção, título, régua e logo do PDF, e a animação ocupa só a área de conteúdo, pedida no
+// modo embutido (?embutido no src do iframe), em que ela esconde título, controles e narração.
+// Exemplo: ver.html?deck=aula-llm.pdf&moldura=slide#1
 import * as pdfjs from "./pdfjs/pdf.min.mjs";
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("./pdfjs/pdf.worker.min.mjs", location.href).href;
 
@@ -51,6 +55,24 @@ const baseDoDeck = new URL(arquivo, location.href);
 // O fragmento opcional (#cenario) diz em que cenário a animação abre.
 const ANIMACAO = /^(?![a-z]+:)(?:\.\/)?[^/?#]*animacao-[^/?#]+\.html(?:#[\w-]+)?$/i;
 $("baixar").href = arquivo;
+const MOLDURA_SLIDE = new URLSearchParams(location.search).get("moldura") === "slide";
+// Área de conteúdo da página de animação, em cm: as margens que o template de slides dá à página
+// de animação (left 2.97, right 2.91, top 5.4, bottom 2.0). A fração da
+// página sai do tamanho real da página do PDF, em pontos.
+const MARGEM_CM = {esq: 2.97, dir: 2.91, topo: 5.4, base: 2.0};
+const PT_POR_CM = 72 / 2.54;
+function areaDeConteudo(pagina) {
+  const {width, height} = pagina.getViewport({scale: 1});
+  const m = (cm) => cm * PT_POR_CM;
+  return {left: m(MARGEM_CM.esq) / width, top: m(MARGEM_CM.topo) / height,
+    width: 1 - m(MARGEM_CM.esq + MARGEM_CM.dir) / width, height: 1 - m(MARGEM_CM.topo + MARGEM_CM.base) / height};
+}
+// O parâmetro do modo embutido vai antes do fragmento, que escolhe o cenário.
+function comEmbutido(endereco) {
+  const url = new URL(endereco);
+  url.searchParams.set("embutido", "");
+  return url.href;
+}
 
 let pdf, atual = 1, paginas = [], ultimaRenderizacao = null;
 const estados = new Map(); // janela da animação → {pos, total}
@@ -82,11 +104,16 @@ async function mostrar(n, voltando = false) {
   caixa.setAttribute("aria-label", `Slide ${atual} de ${pdf.numPages}`);
   if (animacao) {
     const quadro = document.createElement("iframe");
-    quadro.src = animacao; quadro.title = "Animação do slide " + atual; quadro.tabIndex = -1;
+    quadro.src = MOLDURA_SLIDE ? comEmbutido(animacao) : animacao; quadro.title = "Animação do slide " + atual; quadro.tabIndex = -1;
+    if (MOLDURA_SLIDE) {
+      const a = areaDeConteudo(pagina), pct = (x) => (100 * x).toFixed(4) + "%";
+      Object.assign(quadro.style, {inset: "auto", left: pct(a.left), top: pct(a.top), width: pct(a.width), height: pct(a.height), zIndex: "1"});
+    }
     // Quem chega voltando da página seguinte encontra a animação no último passo.
     if (voltando) quadro.addEventListener("load", () => quadro.contentWindow.postMessage({tipo: "tecla", key: "End"}, "*"), {once: true});
     caixa.appendChild(quadro);
-  } else {
+  }
+  if (!animacao || MOLDURA_SLIDE) {
     // Canvas na resolução da tela, para o texto do slide não borrar no projetor.
     const dpr = window.devicePixelRatio || 1;
     const viewport = pagina.getViewport({scale: escala * dpr});
