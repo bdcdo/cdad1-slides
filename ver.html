@@ -43,6 +43,7 @@ html, body { margin: 0; height: 100%; background: var(--fundo); color: var(--tex
 // comum, com seção, título, régua e logo do PDF, e a animação ocupa só a área de conteúdo, pedida no
 // modo embutido (?embutido no src do iframe), em que ela esconde título, controles e narração.
 // Exemplo: ver.html?deck=aula-llm.pdf&moldura=slide#1
+// Com &chave= e &servidor=, a tecla V abre a votação da turma na página atual (ver "Votação da turma", abaixo).
 import * as pdfjs from "./pdfjs/pdf.min.mjs";
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("./pdfjs/pdf.worker.min.mjs", location.href).href;
 
@@ -166,6 +167,7 @@ addEventListener("keydown", (e) => {
   else if (e.key === "Home") mostrar(1);
   else if (e.key === "End") mostrar(pdf.numPages);
   else if (e.key.toLowerCase() === "f") alternarTelaCheia();
+  else if (e.key === "v" || e.key === "V") abrirVotacao();
   else return;
   e.preventDefault();
 });
@@ -183,6 +185,38 @@ addEventListener("mousemove", mostrarBarra);
 addEventListener("resize", () => mostrar(atual));
 // Link para outro slide do mesmo deck (ver.html?deck=…#12) só muda o fragmento, sem recarregar.
 addEventListener("hashchange", () => mostrar(Number(location.hash.slice(1)) || 1));
+
+// Votação da turma, pela tecla V: um painel sobre a página atual, com o QR code, a contagem e as respostas, em
+// votacao/painel.js, que só é baixado na primeira vez que a tecla é usada. A chave do professor e o endereço do
+// servidor da votação chegam pelo endereço da página (&chave=, &servidor=), ficam na sessão desta aba e saem da
+// barra de endereço logo na abertura, porque a barra aparece no projetor e vai para o histórico. Sem os dois
+// parâmetros nada muda no visualizador, e a tecla só mostra o aviso do que falta.
+// Endereço padrão do servidor da votação, e o único lugar dele neste site. Vazio, ele precisa vir em &servidor=.
+const SERVIDOR_DA_VOTACAO = "";
+const SESSAO_DA_VOTACAO = {chave: "votacao:chave", servidor: "votacao:servidor"};
+function guardarParametrosDaVotacao() {
+  // Filtra os pares no texto da query, sem remontá-la: URLSearchParams reescreveria "aula17/aula17.pdf" como
+  // "aula17%2Faula17.pdf" na barra de endereço.
+  const pares = location.search.slice(1).split("&");
+  const restantes = pares.filter((par) => {
+    const [[nome, valor] = []] = new URLSearchParams(par);
+    if (!Object.hasOwn(SESSAO_DA_VOTACAO, nome)) return true;
+    try { sessionStorage.setItem(SESSAO_DA_VOTACAO[nome], valor); } catch { /* aba sem armazenamento: a tecla V avisa o que falta */ }
+    return false;
+  });
+  if (restantes.length < pares.length) history.replaceState(null, "", location.pathname + "?" + restantes.join("&") + location.hash);
+}
+function lerSessaoDaVotacao(nome) {
+  try { return sessionStorage.getItem(SESSAO_DA_VOTACAO[nome]); } catch { return null; }
+}
+async function abrirVotacao() {
+  try {
+    const {abrir} = await import("./votacao/painel.js");
+    await abrir({deck: arquivo, pagina: atual, chave: lerSessaoDaVotacao("chave"),
+      servidor: lerSessaoDaVotacao("servidor") || SERVIDOR_DA_VOTACAO});
+  } catch (erro) { console.error("Votação:", erro); }
+}
+guardarParametrosDaVotacao();
 
 try {
   pdf = await pdfjs.getDocument({url: arquivo}).promise;
