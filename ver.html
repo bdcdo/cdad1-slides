@@ -152,7 +152,9 @@ function andar(delta) {
   const q = quadro(), est = q && estados.get(q.contentWindow);
   if (q && est && delta > 0 && est.pos < est.total - 1) enviar("ArrowRight");
   else if (q && est && delta < 0 && est.pos > 0) enviar("ArrowLeft");
-  else mostrar(atual + delta, delta < 0);
+  // Sem página seguinte (ou anterior), não faz nada. Antes, mostrar() prendia o número na
+  // última página e a redesenhava, e a animação que fecha o deck recomeçava do primeiro passo.
+  else if (atual + delta >= 1 && atual + delta <= pdf.numPages) mostrar(atual + delta, delta < 0);
 }
 
 addEventListener("keydown", (e) => {

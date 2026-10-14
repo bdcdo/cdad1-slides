@@ -159,10 +159,13 @@ svg#setas-notas .misterio polygon { fill: var(--realce); }
 <script type="module">// ---- ./estados.js ----
 // Aula 17: o programa do juscraper, lido de novo no fim da aula. A turma viu o programa sem
 // explicação e disse o que não entendia; aqui cada nota aponta, com setas, os trechos que já dá
-// para ler (objetos, métodos, atributo, argumento nomeado) e o que continua mistério. As notas são
+// para ler (biblioteca, objetos, métodos, atributo, range) e o que fica para o pandas. As notas são
 // comentários de Python, ao lado do código. A cada passo entra uma nota, com os contornos e as
 // setas dela, e a anterior sai inteira: a tela mostra só o destaque da vez, a pedido do Bruno em
-// 13/10/2026 (na primeira versão os comentários e os contornos anteriores ficavam).
+// 13/10/2026 (na primeira versão os comentários e os contornos anteriores ficavam). Em 14/10/2026
+// as notas acompanharam a aula refeita: o import e jus.scraper deixaram de ser mistério, porque a
+// turma instala a biblioteca em sala; o argumento nomeado foi para o pandas e deu lugar ao range,
+// lido na documentação. Versão anterior em leitura-juscraper-estados.pre-14102026.js.
 //
 // O programa é o do deck (`programa-juscraper`, em aulas/aula17/aula17.typ), e a suíte
 // test-animacao-leitura-juscraper.py confere que os dois são iguais e que cada nota aponta
@@ -191,6 +194,8 @@ const PROGRAMA = [
 // trecho: "lado" (direto na borda esquerda, para o que começa a linha), "cima" ou "baixo" (pelo
 // vão entre as linhas, para o que está no meio dela, sem cruzar texto).
 const NOTAS = [
+  {id: "biblioteca", lado: "esq", altura: 1, comentario: ["# biblioteca instalada", "# com uv add juscraper"],
+   trechos: [{linha: 1, texto: "import juscraper as jus", por: "lado"}, {linha: 3, texto: "jus.scraper(", por: "cima"}]},
   {id: "objetos", lado: "esq", altura: 5, comentario: ["# objetos: cada um", "# saiu de uma classe"],
    trechos: [{linha: 3, texto: "tjsp", por: "lado"}, {linha: 4, texto: "dados", por: "lado"}, {linha: 7, texto: "contagem", por: "lado"}]},
   {id: "metodos", lado: "dir", altura: 7, comentario: ["# métodos: o ponto", "# pede uma ação"],
@@ -198,20 +203,20 @@ const NOTAS = [
              {linha: 8, texto: ".head(5)", por: "baixo"}, {linha: 8, texto: ".plot(", por: "baixo"}]},
   {id: "atributo", lado: "dir", altura: 5, comentario: ["# atributo: um dado,", "# sem parênteses"],
    trechos: [{linha: 6, texto: ".shape", por: "cima"}]},
-  {id: "argumento", lado: "dir", altura: 3, comentario: ["# argumento nomeado:", "# páginas de 1 a 10"],
-   trechos: [{linha: 4, texto: "paginas=range(1, 11)", por: "baixo"}]},
-  {id: "misterio", lado: "esq", altura: 1, comentario: ["# ainda é mistério"],
-   trechos: [{linha: 1, texto: "import juscraper as jus", por: "lado"}, {linha: 3, texto: "jus.scraper(", por: "cima"},
-             {linha: 7, texto: '["assunto"]', por: "cima"}]},
+  {id: "range", lado: "dir", altura: 3, comentario: ["# range: as páginas", "# de 1 a 10"],
+   trechos: [{linha: 4, texto: "range(1, 11)", por: "baixo"}]},
+  {id: "misterio", lado: "esq", altura: 5, comentario: ["# fica para o pandas"],
+   trechos: [{linha: 4, texto: "paginas=", por: "baixo"}, {linha: 7, texto: '["assunto"]', por: "cima"}]},
 ];
 
 const NARRACOES = [
   "O mesmo programa do começo. O que deixou de ser mistério?",
-  "tjsp, dados e contagem são objetos. Cada um saiu de uma classe, como a parte e o processo.",
+  "import usa a biblioteca que vocês instalaram, com o apelido jus. jus.scraper(\"tjsp\") chama uma função dela, que devolve um objeto.",
+  "tjsp, dados e contagem são objetos. Cada um saiu de uma classe: tjsp é um TJSPScraper, como toto é um Cachorro.",
   "Depois do ponto e com parênteses: métodos. O ponto pede uma ação ao objeto que vem antes dele.",
   "Depois do ponto e sem parênteses: atributo. dados.shape é um dado que o objeto guarda.",
-  "paginas=range(1, 11) é um argumento nomeado, e pede as páginas de 1 a 10.",
-  "Ainda é mistério: o import e o jus que ele cria, os colchetes de dados[\"assunto\"] e de que classe são esses objetos.",
+  "range(1, 11) cria as páginas de 1 a 10, como mostra a documentação.",
+  "Fica para o pandas: o nome antes do sinal de igual, em paginas=, e os colchetes de dados[\"assunto\"].",
 ];
 
 // `nota` diz qual nota está na tela, contando de 1; 0 é o programa sem nota nenhuma.
