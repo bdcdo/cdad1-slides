@@ -74,48 +74,52 @@ html.recortado body { position: relative; overflow: clip; }
 <style>
 :root { --terminal: #1e1f22; --terminal-texto: #e8e8e8; --terminal-apoio: #c4c7cc; --mais: #8fd694; --menos: #ffb4ab;
   --preparado: #dcf2ea; --preparado-borda: #00805d; }
-.painel { position: absolute; background: var(--painel); padding: 8px 14px; border-radius: 4px; }
-.painel h2 { margin: 0 0 6px; font-size: 15px; font-weight: 600; color: var(--apoio); }
-.painel h2 code { font: 700 16px var(--mono); color: var(--texto); }
+/* Tamanhos pelo piso de letra dos slides (README de animacoes, "Regras de tela"): no slide, o
+   palco de 1280 px cobre os 960 pt da página, e 1 px do palco vale 0,75 pt. O corpo (código, saída
+   do terminal, narração, hash) fica em 27 px, 20,25 pt; rótulo de uma linha, em 22 px, 16,5 pt. */
+.painel { position: absolute; background: var(--painel); padding: 6px 14px; border-radius: 4px; }
 
-#area { left: 30px; top: 14px; width: 560px; height: 266px; }
-#situacao { position: absolute; left: 14px; right: 14px; bottom: 12px; height: 30px; }
-#situacao .camada { right: auto; padding: 3px 12px; border-radius: 14px; font-size: 14px; font-weight: 600; white-space: nowrap;
+#area { left: 20px; top: 10px; width: 570px; height: 214px; }
+#area h2 { margin: 0; height: 40px; display: flex; align-items: center; }
+#area h2 code { font: 700 27px var(--mono); color: var(--texto); }
+#situacao { position: absolute; left: 176px; right: 14px; top: 8px; height: 34px; }
+#situacao .camada { right: auto; padding: 1px 12px; border-radius: 17px; font-size: 22px; font-weight: 600; white-space: nowrap;
   border: 2px solid var(--borda); background: var(--fundo); }
 #situacao .modificado { background: var(--atual); border-color: var(--contorno); color: #4a3700; }
 #situacao .preparado { background: var(--preparado); border-color: var(--preparado-borda); color: #004d38; }
-#arquivo { position: relative; margin-top: 10px; height: 160px; }
-.linha-arquivo { display: grid; grid-template-columns: 2em minmax(0, 1fr) auto; align-items: center; height: 29px; padding: 0 8px 0 0;
-  font: 16px var(--mono); white-space: pre; border-left: 6px solid transparent; border-radius: 3px; }
-.linha-arquivo .num { color: var(--apoio); text-align: right; padding-right: .6em; }
+#arquivo { position: relative; margin-top: 2px; height: 160px; }
+.linha-arquivo { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; height: 32px; padding: 0 6px 0 0;
+  font: 27px var(--mono); white-space: pre; border-left: 6px solid transparent; border-radius: 3px; }
+.linha-arquivo .num { font-size: 22px; color: var(--apoio); text-align: right; padding-right: 8px; }
 .linha-arquivo.mudou { background: var(--atual); border-left-color: var(--contorno); }
-.linha-arquivo .marca { font: 600 13px system-ui, sans-serif; color: #4a3700; }
-.linha-arquivo.removida .codigo { color: #4a3700; font: italic 15px system-ui, sans-serif; }
+.linha-arquivo .marca { font: 600 22px system-ui, sans-serif; color: #4a3700; }
+.linha-arquivo.removida .codigo { color: #4a3700; font: italic 22px system-ui, sans-serif; }
 .linha-arquivo.removida { background: var(--atual); border-left-color: var(--contorno); }
 
-#versoes { left: 610px; top: 14px; width: 640px; height: 266px; }
-.raia { position: absolute; left: 626px; font-size: 14px; font-weight: 600; color: var(--apoio); }
-.versao { position: absolute; width: 148px; height: 84px; padding: 4px 9px; background: var(--fundo); border: 2px solid var(--borda); border-radius: 6px; }
-.versao .rotulo { font: 600 13px system-ui, sans-serif; color: var(--apoio); }
-.versao .hash { font: 700 15px var(--mono); }
-.versao .msg { font-size: 14px; line-height: 1.2; margin-top: 2px; }
-#contorno { position: absolute; width: 158px; height: 94px; border: 3px solid var(--contorno); border-radius: 9px; pointer-events: none; }
+#versoes { left: 600px; top: 10px; width: 660px; height: 214px; }
+.raia { position: absolute; left: 616px; font-size: 22px; line-height: 26px; font-weight: 600; color: var(--apoio); }
+#ordem { position: absolute; right: 36px; top: 16px; font-size: 22px; line-height: 26px; color: var(--apoio); }
+.versao { position: absolute; width: 140px; height: 70px; padding: 3px 10px; background: var(--fundo); border: 2px solid var(--borda); border-radius: 6px; }
+.versao .rotulo { font: 600 22px/28px system-ui, sans-serif; color: var(--apoio); }
+.versao .hash { font: 700 27px/32px var(--mono); }
+#contorno { position: absolute; width: 150px; height: 80px; border: 3px solid var(--contorno); border-radius: 9px; pointer-events: none; }
 
-#terminal { left: 30px; top: 294px; width: 1220px; height: 310px; background: var(--terminal); }
-#terminal h2 { color: var(--terminal-apoio); }
+#terminal { left: 20px; top: 230px; width: 1240px; height: 396px; padding: 8px 14px; background: var(--terminal); }
+#terminal h2 { position: absolute; top: 10px; right: 16px; margin: 0; font-size: 22px; font-weight: 600; color: var(--terminal-apoio); }
 #saida { position: relative; }
-.bloco { margin: 0; font: 16px/1.3 var(--mono); color: var(--terminal-texto); white-space: pre; }
+.bloco { margin: 0; font: 27px/1.15 var(--mono); color: var(--terminal-texto); white-space: pre; }
 .bloco .prompt { color: var(--terminal-apoio); }
 .bloco .comando { font-weight: 700; }
 .bloco .mais { color: var(--mais); }
 .bloco .menos { color: var(--menos); }
-.bloco.vazio { font: 16px system-ui, sans-serif; color: var(--terminal-apoio); }
-.bloco .sem-saida { font: italic 15px system-ui, sans-serif; color: var(--terminal-apoio); }
+.bloco.vazio { font: 27px/1.15 system-ui, sans-serif; color: var(--terminal-apoio); }
+.bloco .sem-saida { font: italic 27px system-ui, sans-serif; color: var(--terminal-apoio); }
 
-#narracao { position: absolute; left: 30px; right: 30px; top: 614px; height: 90px; border-left: 6px solid var(--realce); background: var(--painel); }
-#narracao .fala { margin: 0; padding: 12px 18px; font-size: 23px; line-height: 1.4; }
-.cartao-voo.versao-voo { font: 700 15px var(--mono); padding: 4px 9px; border-radius: 6px; white-space: nowrap; }
-.cartao-voo.versao-voo small { font: 600 13px system-ui, sans-serif; color: var(--apoio); margin-right: 4px; }
+#narracao { position: absolute; left: 20px; right: 20px; top: 632px; height: 80px; border-left: 6px solid var(--realce); background: var(--painel); }
+#narracao .fala { margin: 0; padding: 6px 18px; font-size: 27px; line-height: 1.25; }
+/* O cartão em voo tem a forma do cartão da versão, para pousar sobre ele sem mudar de tamanho. */
+.cartao-voo.versao-voo { width: 140px; height: 70px; font: 700 27px/32px var(--mono); padding: 3px 10px; border-radius: 6px; white-space: nowrap; }
+.cartao-voo.versao-voo small { display: block; font: 600 22px/28px system-ui, sans-serif; color: var(--apoio); }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
 </style>
 <script>/*!
@@ -158,19 +162,19 @@ html.recortado body { position: relative; overflow: clip; }
 <body>
 <div id="moldura"><div id="palco">
   <section class="painel" id="area">
-    <h2><code>prazos.py</code> · área de trabalho</h2>
+    <h2><code>prazos.py</code></h2>
     <div id="situacao" aria-live="polite"></div>
     <div id="arquivo"></div>
   </section>
   <section class="painel" id="versoes">
-    <h2>Versões registradas, da mais antiga à mais nova →</h2>
   </section>
-  <div class="raia" style="top:44px">no computador</div>
-  <div class="raia" style="top:160px">fork no GitHub</div>
+  <div class="raia" style="top:16px">no computador</div>
+  <div id="ordem">da mais antiga à mais nova →</div>
+  <div class="raia" style="top:120px">fork no GitHub</div>
   <div id="cartoes"></div>
   <div id="contorno" aria-hidden="true"></div>
   <section class="painel" id="terminal">
-    <h2>Terminal · último comando e a saída dele</h2>
+    <h2>terminal · último comando e a saída</h2>
     <div id="saida"></div>
   </section>
   <div id="narracao" aria-live="polite"></div>
@@ -635,8 +639,8 @@ function iniciar({animacao, cenarios, rotulos, preparar, espera}) {
 
 
 gsap.registerPlugin(MotionPathPlugin);
-const X_VERSAO = 626, PASSO_VERSAO = 154, Y_LOCAL = 66, Y_FORK = 180;
-const SITUACAO = {limpa: "situação: igual à última versão registrada", modificado: "situação: mudou, e a mudança ainda não é versão", preparado: "situação: mudança preparada para o próximo commit"};
+const X_VERSAO = 616, PASSO_VERSAO = 150, Y_LOCAL = 44, Y_FORK = 148;
+const SITUACAO = {limpa: "igual à última versão", modificado: "mudou, ainda não é versão", preparado: "preparado para o commit"};
 
 // O arquivo na área de trabalho, com as linhas que diferem da última versão registrada marcadas
 // por fundo, contorno e a palavra "mudou"; a linha que existe na versão e sumiu do arquivo aparece
@@ -647,7 +651,7 @@ function desenharArquivo(chave) {
   const n = Math.max(arquivo.length, base.length);
   for (let i = 0; i < n; i++) {
     if (i >= arquivo.length) {
-      el.appendChild(criarEl("div", "linha-arquivo removida", `<span class="num">−</span><span class="codigo">a linha ${i + 1} da versão registrada saiu do arquivo</span><span class="marca">mudou</span>`));
+      el.appendChild(criarEl("div", "linha-arquivo removida", `<span class="num">−</span><span class="codigo">a linha ${i + 1} saiu do arquivo</span><span class="marca">mudou</span>`));
       continue;
     }
     const mudou = arquivo[i] !== base[i];
@@ -667,7 +671,9 @@ function desenharTerminal(chave) {
   return criarEl("pre", "bloco", `<span class="prompt">$ </span><span class="comando">${escapar(terminal.comando)}</span>\n` + linhas.join("\n"));
 }
 
-const conteudoVersao = (v) => `<div class="rotulo">versão ${VERSOES[v].numero}</div><div class="hash">${VERSOES[v].hash}</div><div class="msg">${escapar(VERSOES[v].mensagem)}</div>`;
+// O cartão traz número e hash; a mensagem de cada versão aparece no terminal, na saída do commit e do
+// git log, porque no tamanho do piso ela não cabe em quatro cartões lado a lado.
+const conteudoVersao = (v) => `<div class="rotulo">versão ${VERSOES[v].numero}</div><div class="hash">${VERSOES[v].hash}</div>`;
 
 function preparar(cenario) {
   const estados = montar(cenario);
@@ -695,9 +701,9 @@ function preparar(cenario) {
   const vooVersao = (v, origemEl, destinoEl) => {
     const cartao = $("voos").appendChild(criarEl("div", "cartao-voo versao-voo", `<small>versão ${VERSOES[v].numero}</small>${VERSOES[v].hash}`));
     const d = caixa(destinoEl), o = caixa(origemEl);
-    const chegada = {x: d.x + 8, y: d.y + 8};
+    const chegada = {x: d.x, y: d.y};
     posicionarCartao(cartao, chegada);
-    return {cartao, origem: {x: o.x + 8, y: o.y + 8}, chegada};
+    return {cartao, origem: {x: o.x, y: o.y}, chegada};
   };
   const areaArquivo = $("arquivo");
 
