@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>A Tabela e o DataFrame</title>
+<title>O que viaja numa requisição</title>
 <script>// Primeiro script da página, antes do GSAP e do módulo: o visualizador de slides manda End no
 // load do iframe, e o que chegar antes de a interface montar espera nesta fila. iniciar() em
 // comum.js instala window.tratarTecla e esvazia a fila.
@@ -72,56 +72,186 @@ html.cheio #controles { display: none; }
 html.recortado body { position: relative; overflow: clip; }
 </style>
 <style>
-:root { --terminal: #1e1f22; --terminal-texto: #e8e8e8; --terminal-apoio: #c4c7cc; --igual: #ffd35c; }
-/* Tamanhos pelo piso de letra dos slides (README de animacoes, "Regras de tela"): no slide, o
-   palco de 1280 px cobre os 960 pt da página, e 1 px do palco vale 0,75 pt. O corpo (código, tabela
-   de dados, saída e narração) fica em 27 px, 20,25 pt; rótulo de uma linha (título de painel, nota,
-   número de linha, selo de "mesmo número"), em 22 px, 16,5 pt.
-   As larguras saem da linha mais longa de cada coluna: tabela.contar("resultado", "procedente"), com
-   41 caracteres, à esquerda, e df["resultado"].value_counts(), com 30, à direita; a altura sai das
-   nove linhas da classe em cima e das quatro linhas da saída do value_counts() embaixo. */
-.painel { position: absolute; background: var(--painel); padding: 4px 6px; border-radius: 4px; }
-.painel h2 { margin: 0 0 2px; font-size: 22px; line-height: 27px; font-weight: 600; color: var(--apoio); }
-.painel h2 code { font: 700 22px var(--mono); color: var(--texto); }
+/* Página de rastreio: código à esquerda; à direita, a memória (um quadro por chamada ativa), a
+   consulta do passo e a saída na tela; narração embaixo. */
+:root { --terminal: #1e1f22; --terminal-texto: #e8e8e8; --terminal-apoio: #c4c7cc; --terminal-erro: #ffb4ab; --quadro-funcao: #e3f0f9; --borda-funcao: #1f4e79; }
+#cabeca { position: absolute; left: 28px; right: 28px; top: 12px; height: 38px; display: flex; align-items: baseline; justify-content: space-between; }
+#titulo { margin: 0; font-size: 25px; }
+#tipo { margin: 0; font-size: 18px; color: var(--apoio); }
+.painel { position: absolute; background: var(--painel); padding: 8px 12px; border-radius: 4px; }
+.painel h2 { margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--apoio); }
+#painel-codigo { left: 28px; top: 56px; width: 640px; height: 544px; }
+#painel-memoria { left: 684px; top: 56px; width: 568px; height: 348px; }
+#painel-consulta { left: 684px; top: 414px; width: 568px; height: 52px; padding-top: 5px; background: var(--atual); border-left: 6px solid var(--contorno); }
+#painel-consulta h2 { margin-bottom: 2px; }
+#painel-saida { left: 684px; top: 476px; width: 568px; height: 124px; padding-top: 6px; background: var(--terminal); }
+#painel-saida h2 { margin-bottom: 2px; color: var(--terminal-apoio); }
+#narracao { position: absolute; left: 28px; right: 28px; top: 614px; height: 90px; border-left: 6px solid var(--realce); background: var(--painel); }
+#narracao .fala { margin: 0; padding: 12px 18px; font-size: 23px; line-height: 1.4; }
 
-#painel-classe { left: 8px; top: 8px; width: 716px; height: 319px; }
-#painel-dados { left: 730px; top: 8px; width: 540px; height: 319px; }
-#painel-tabela { left: 8px; top: 333px; width: 716px; height: 297px; }
-#painel-df { left: 730px; top: 333px; width: 540px; height: 297px; }
-
-.codigo { position: relative; }
-.linha-codigo { position: relative; z-index: 1; display: grid; grid-template-columns: 28px minmax(0, 1fr); height: 31px;
-  font: 27px/31px var(--mono); white-space: pre; }
-.linha-codigo .num { font-size: 22px; color: var(--apoio); text-align: right; padding-right: 8px; }
-#contorno-classe { position: absolute; left: -4px; right: -4px; border: 3px solid var(--contorno); border-radius: 5px; z-index: 2; pointer-events: none; }
-
-table { border-collapse: collapse; width: 100%; font-size: 27px; background: var(--fundo); margin-top: 4px; }
-th, td { text-align: left; padding: 0 14px; height: 42px; border-bottom: 1px solid #c8c8c8; }
-th { font: 700 27px var(--mono); border-bottom: 2px solid var(--borda); }
-#nota-dados { margin: 10px 0 0; font-size: 22px; line-height: 27px; color: var(--apoio); }
-#nota-dados code { font: 22px var(--mono); color: var(--texto); }
-
-.celula { position: relative; height: 93px; margin-top: 2px; }
-.celula .linha-codigo { grid-template-columns: 32px minmax(0, 1fr); padding-right: 2px; }
-.celula .linha-codigo .num { padding-right: 6px; }
-.marcador { position: absolute; left: -6px; right: -4px; top: 0; height: 31px; background: var(--atual); border-left: 6px solid var(--contorno);
+#codigo { position: relative; }
+.linha-codigo { position: relative; z-index: 1; display: grid; grid-template-columns: 2.6em minmax(0, 1fr); padding: 2px 8px 2px 0;
+  font: 16px/1.4 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.linha-codigo .num { color: var(--apoio); text-align: right; padding-right: .7em; user-select: none; }
+#marcador-linha { position: absolute; left: -4px; right: -4px; top: 0; height: 30px; background: var(--atual); border-left: 6px solid var(--contorno);
   border-radius: 3px; z-index: 0; }
-.marcador::before { content: "▶"; position: absolute; left: 0; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--contorno); }
-.saida { position: absolute; left: 6px; right: 6px; bottom: 6px; height: 160px; background: var(--terminal); border-radius: 4px; padding: 4px 10px; }
-.saida h3 { margin: 0 0 2px; font: 600 22px/27px system-ui, sans-serif; color: var(--terminal-apoio); }
-.saida .pilha { position: relative; }
-.saida pre { margin: 0; font: 27px/30px var(--mono); color: var(--terminal-texto); white-space: pre; }
-.saida pre.vazia { font: italic 22px/30px system-ui, sans-serif; color: var(--terminal-apoio); }
-/* Contorno de uma linha da saída; top e height saem da medida da linha, em preparar(). */
-.igual { position: absolute; left: 1px; right: 1px; border: 3px solid var(--igual); border-radius: 6px; pointer-events: none; }
-.igual span { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font: 700 22px/26px system-ui, sans-serif; color: #1a1a1a;
-  background: var(--igual); padding: 0 8px; border-radius: 3px; }
+#marcador-linha::before { content: "▶"; position: absolute; left: 2px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--contorno); }
+/* Linha que chamou uma função ainda ativa: contorno tracejado e o aviso escrito, sem depender da cor. */
+.espera { position: absolute; left: -4px; right: -4px; border: 2px dashed var(--borda-funcao); border-radius: 3px; z-index: 2; pointer-events: none; }
+/* O aviso é um comentário de Python: com #, na fonte do código e no verde dos comentários. */
+.espera span { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font: 16px/1.4 var(--mono); color: var(--py-comentario);
+  white-space: nowrap; }
 
-#narracao { position: absolute; left: 8px; right: 10px; top: 636px; height: 80px; border-left: 6px solid var(--realce); background: var(--painel); }
-#narracao .fala { margin: 0; padding: 6px 18px; font-size: 27px; line-height: 1.25; }
-.cartao-voo.saida-voo { font: 27px/30px var(--mono); background: var(--terminal); color: var(--terminal-texto); border-color: #8a8d95; padding: 2px 8px; white-space: pre; }
-.cartao-voo.nome-voo { font: 700 27px var(--mono); }
+#memoria { position: relative; height: 300px; }
+.quadro { position: absolute; left: 0; right: 0; border: 2px solid var(--borda); border-radius: 6px; background: var(--fundo); padding: 4px 10px 6px; }
+.quadro.funcao { border-color: var(--borda-funcao); background: var(--quadro-funcao); }
+.quadro h3 { margin: 0 0 4px; font: 600 15px system-ui, sans-serif; color: var(--texto); }
+.quadro h3 small { font-weight: 400; color: var(--apoio); }
+.quadro.compacto { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; }
+.quadro.compacto h3 { grid-column: 1 / -1; }
+.quadro.compacto .variavel { grid-template-columns: 6.2em minmax(0, 1fr); }
+.variavel { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); gap: 8px; margin-top: 4px; }
+.variavel code { font: 700 16px var(--mono); padding-top: 3px; overflow-wrap: anywhere; }
+/* Cabeçalho das colunas de um quadro de chamada, e legenda no quadro de duas colunas. */
+.variavel.cabecalho span, .legenda { font: 600 12px system-ui, sans-serif; color: var(--apoio); }
+.legenda { grid-column: 1 / -1; margin-top: 2px; }
+.sem-variavel { position: absolute; left: 10px; font: italic 15px system-ui, sans-serif; color: var(--apoio); }
+/* Cartão das funções que o def já registrou, acima dos quadros: uma faixa de uma linha, para não
+   tirar dos quadros a altura do painel. */
+.funcoes { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: baseline; gap: 10px; border: 2px dashed var(--borda-funcao);
+  border-radius: 6px; background: var(--fundo); padding: 3px 10px 4px; }
+.funcoes h3 { margin: 0; font: 600 15px system-ui, sans-serif; color: var(--texto); white-space: nowrap; }
+.funcoes h3 small { font-weight: 400; color: var(--apoio); }
+.funcoes .lista { position: relative; flex: 1; display: flex; flex-wrap: wrap; gap: 2px 14px; min-height: 21px; }
+.funcoes .lista code { font: 700 15px var(--mono); }
+.funcoes .lista .ausente { position: absolute; left: 0; top: 0; font: italic 15px system-ui, sans-serif; color: var(--apoio); }
+.slot { position: relative; }
+.slot .camada { font: 15px/1.35 var(--mono); overflow-wrap: anywhere; white-space: pre-wrap; padding: 2px 5px; border-radius: 3px; }
+.slot .camada.ausente { font-family: system-ui, sans-serif; color: var(--apoio); font-style: italic; }
+.slot .camada.valor { background: var(--fundo); border: 2px solid var(--borda); }
+
+#consulta { position: relative; height: 24px; }
+#consulta .camada { font: 16px var(--mono); overflow-wrap: anywhere; }
+#consulta .ausente { font-family: system-ui, sans-serif; color: var(--apoio); }
+
+#stdout { margin: 0; font: 16px/1.3 var(--mono); position: relative; color: var(--terminal-texto); }
+#stdout .saida-linha { position: absolute; left: 0; right: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+#stdout .ausente { color: var(--terminal-apoio); font-family: system-ui, sans-serif; }
+#stdout .erro-linha { color: var(--terminal-erro); font-weight: 700; }
+
+#setas .trecho { position: absolute; border: 2px solid var(--contorno); border-radius: 3px; }
+.cartao-voo.terminal-voo { font: 16px/1.3 var(--mono); background: var(--terminal); color: var(--terminal-texto); border-color: #8a8d95; padding: 1px 6px; white-space: pre; }
+.cartao-voo.retorno-voo { border-color: var(--borda-funcao); font-weight: 700; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+</style>
+<style>
+/* Peças da cena declarativa (cena.js) que rastreio.css não traz: valores em slots, contornos de
+   foco e de marca, seta da consulta e o painel do servidor. As três animações da aula 19 usam. */
+[data-slot] { position: relative; }
+.v-valor .l, .v-vazio { min-height: 1.3em; }
+.slot-valor .v-valor { font: 14px/1.3 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; padding: 2px 5px; border-radius: 3px;
+  background: var(--fundo); border: 2px solid var(--borda); }
+.slot-valor .v-vazio { font: italic 14px/1.3 system-ui, sans-serif; color: var(--apoio); padding: 3px 0; }
+#memoria { height: auto; }
+#memoria .variavel { align-items: start; }
+#memoria .variavel code { font-size: 15px; }
+
+.terminal .v-valor { font: 16px/1.3 var(--mono); color: var(--terminal-texto); white-space: pre-wrap; overflow-wrap: anywhere; }
+.terminal .v-vazio { font: 16px/1.3 system-ui, sans-serif; color: var(--terminal-apoio); }
+
+#focos { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+#setas { z-index: 2; }
+.foco { position: absolute; border: 2px solid var(--contorno); border-radius: 4px; box-shadow: 0 0 0 1px var(--contorno); }
+.marca { position: absolute; border: 2px dashed var(--contorno); border-radius: 5px; }
+#setas path.seta { fill: none; stroke: var(--contorno); stroke-width: 3; }
+#setas path.ponta { fill: var(--contorno); }
+.cartao-voo { white-space: pre-wrap; }
+.cartao-voo.valor-voo { font: 14px/1.3 var(--mono); }
+
+#rede svg { position: absolute; inset: 0; }
+#rede .via { fill: none; stroke: var(--borda); stroke-width: 2; stroke-dasharray: 6 5; }
+#rede .via-ponta { fill: var(--borda); }
+.via-rotulo { position: absolute; left: 0; right: 0; margin: 0; text-align: center; font-size: 15px; color: var(--apoio); }
+
+.painel h3 { margin: 8px 0 3px; font: 600 13px system-ui, sans-serif; color: var(--apoio); }
+.painel h2 + h3 { margin-top: 2px; }
+.registro { font: 14px/1.3 var(--mono); padding: 1px 0; }
+.registro span { padding: 0 3px; }
+.aviso-servidor .v-valor { font: 600 14px system-ui, sans-serif; border: 0; background: none; padding: 2px 0; }
+</style>
+<style>
+/* Faixa de cima das animações de conceito (requisicao, cookie, pagina-javascript): dois atores, cada
+   um num painel com ícone e nome, e a rede entre eles, por onde os cartões viajam. Tamanhos pelo piso
+   de letra: nome e valor em 27 px, papel e rótulo em 22 px. Cada tema ajusta altura e conteúdo. */
+#cabeca { display: none; }
+.painel h2 { margin: 0 0 2px; font: 600 22px/26px system-ui, sans-serif; color: var(--apoio); }
+.ator { top: 8px; height: 96px; width: 390px; display: flex; gap: 12px; align-items: flex-start; padding: 8px 12px; }
+#painel-programa { left: 12px; }
+#painel-servidor { left: 878px; }
+.ator > div { min-width: 0; flex: 1; }
+.ator .icone { flex: none; width: 56px; height: 56px; margin-top: 6px; fill: none; stroke: var(--texto); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+.ator .nome { margin: 0; font: 700 27px/32px system-ui, sans-serif; }
+.ator .papel { margin: 0; font: 22px/28px system-ui, sans-serif; color: var(--apoio); }
+.ator .slot-valor .v-valor { border: 0; background: none; padding: 0; font: 27px/32px var(--mono); white-space: pre; }
+.ator .slot-valor .v-vazio { font: 22px/32px system-ui, sans-serif; font-style: normal; color: var(--apoio); }
+.ator .rotulo { margin: 4px 0 0; font: 600 22px/26px system-ui, sans-serif; color: var(--apoio); }
+
+#rede { position: absolute; left: 414px; width: 452px; top: 26px; height: 64px; }
+#rede .rede-rotulo { margin: 0; text-align: center; font: 22px/24px system-ui, sans-serif; color: var(--apoio); }
+#rede svg { position: static; display: block; width: 452px; height: 40px; }
+
+/* Narração na faixa de baixo, em 27 px, até duas linhas. */
+#narracao { left: 12px; right: 12px; top: 636px; height: 80px; }
+#narracao .fala { padding: 6px 18px; font-size: 27px; line-height: 1.25; }
+.cartao-voo.valor-voo { font: 27px/32px var(--mono); }
+</style>
+<style>
+/* Tamanhos pelo piso de letra dos slides: no slide, 1 px do palco vale 0,75 pt. Valor, narração e
+   carimbo em 27 px (20,25 pt); rótulo (nome de parte, de painel, de família) em 22 px (16,5 pt).
+   Layout: os dois atores e a rede na faixa de cima (atores.css); embaixo, no #pedido, o pedido e a
+   resposta, cada um com a largura toda, para a linha do pedido (50 caracteres) e as linhas do corpo
+   caberem inteiras; no #codigos, o pedido do passo à esquerda e as famílias de código à direita. */
+
+/* #pedido: a linha do pedido, com o nome de cada parte embaixo dela. */
+#painel-pedido { left: 12px; top: 112px; width: 1256px; height: 210px; }
+#painel-resposta { left: 12px; top: 330px; width: 1256px; height: 298px; }
+.linha-pedido { display: flex; align-items: flex-start; gap: 0; margin: 0 0 2px 190px; }
+.parte { display: flex; flex-direction: column; }
+.parte .slot-valor { font: 27px/34px var(--mono); }
+.parte .slot-valor .v-valor { border: 0; background: none; padding: 0; white-space: pre; font: 27px/34px var(--mono); }
+.parte .rotulo-parte { margin: 2px 5px 0 0; border-top: 3px solid var(--borda); padding: 0 2px; font: 22px/26px system-ui, sans-serif; color: var(--apoio); white-space: nowrap; }
+.campo { display: grid; grid-template-columns: 178px minmax(0, 1fr); column-gap: 12px; margin-top: 2px; }
+.campo > .rotulo { margin: 0; padding-top: 4px; font: 600 22px/26px system-ui, sans-serif; color: var(--apoio); }
+.campo .slot-valor .v-valor { border: 0; background: none; padding: 0; font: 27px/32px var(--mono); white-space: pre; }
+.campo .slot-valor .v-valor { width: max-content; }
+#painel-resposta h2 [data-slot] { display: inline-block; width: 420px; vertical-align: top; }
+#painel-resposta h2 .slot-valor .v-valor { font: 400 22px/26px system-ui, sans-serif; color: var(--apoio); border: 0; background: none; padding: 0 0 0 8px; }
+
+/* Carimbo: o código da resposta, em letra grande, com borda, inclinado como um carimbo. A família
+   vem escrita junto (o número e o nome), sem depender da cor. */
+.carimbo .v-valor { width: max-content; font: 700 27px/34px system-ui, sans-serif !important; padding: 2px 12px !important; border: 3px solid currentColor !important;
+  border-radius: 6px; background: var(--fundo) !important; transform: rotate(-2deg); color: var(--carimbo); }
+:root { --carimbo: #1f4e79; --familia-2: #1b6b3a; --familia-4: #9e1b1b; }
+
+/* #codigos */
+#painel-pedido-codigo { left: 12px; top: 112px; width: 800px; height: 516px; }
+#painel-pedido-codigo .bloco .slot-valor .v-valor { border: 0; background: none; padding: 0; font: 27px/32px var(--mono); white-space: pre; }
+#painel-pedido-codigo h2 { margin-top: 6px; }
+/* O carimbo e, ao lado, o Retry-After (só no 429); embaixo, no mesmo lugar, o corpo do erro ou, no
+   200, a nota sobre o corpo, porque os dois nunca aparecem juntos. */
+.linha-carimbo { display: grid; grid-template-columns: 420px 330px; align-items: center; margin: 8px 0 8px 6px; }
+#painel-pedido-codigo .bloco-retry .v-valor { border: 0; background: none; padding: 0; font: 27px/32px var(--mono); white-space: pre; }
+.sobrepostos { display: grid; }
+.sobrepostos > * { grid-area: 1 / 1; }
+#painel-pedido-codigo [data-slot="cod-corte"] .v-valor { font: 22px/26px system-ui, sans-serif; color: var(--apoio); border: 0; background: none; padding: 0; }
+#painel-familias { left: 824px; top: 112px; width: 444px; height: 516px; }
+.familia { margin: 4px 0 10px; padding: 2px 6px 4px; border-radius: 6px; }
+.familia h3 { margin: 0 0 4px; font: 700 22px/28px system-ui, sans-serif; color: var(--texto); }
+.familia .carimbo { margin: 0 0 6px 14px; }
+.familia[data-alvo="familia-2"] .carimbo .v-valor { color: var(--familia-2); }
+.familia[data-alvo="familia-4"] .carimbo .v-valor { color: var(--familia-4); }
+#painel-familias [data-slot="c5xx"] .v-valor { font: italic 22px/28px system-ui, sans-serif; color: var(--apoio); border: 0; background: none; padding: 0 0 0 14px; }
+.slot-valor .v-vazio { min-height: 0; padding: 0; }
 </style>
 <script>/*!
  * GSAP 3.15.0
@@ -148,6 +278,18 @@ th { font: 700 27px var(--mono); border-bottom: 2px solid var(--borda); }
 
 </script>
 <script>/*!
+ * DrawSVGPlugin 3.15.0
+ * https://gsap.com
+ * 
+ * @license Copyright 2026, GreenSock. All rights reserved.
+ * Subject to the terms at https://gsap.com/standard-license.
+ * @author: Jack Doyle, jack@greensock.com
+ */
+
+!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?t(exports):"function"==typeof define&&define.amd?define(["exports"],t):t((e=e||self).window=e.window||{})}(this,function(e){"use strict";function l(){return"undefined"!=typeof window}function m(){return t||l()&&(t=window.gsap)&&t.registerPlugin&&t}function p(e){return Math.round(1e4*e)/1e4}function q(e){return parseFloat(e)||0}function r(e,t){var r=q(e);return~e.indexOf("%")?r/100*t:r}function s(e,t){return q(e.getAttribute(t))}function u(e,t,r,n,s,i){return D(Math.pow((q(r)-q(e))*s,2)+Math.pow((q(n)-q(t))*i,2))}function v(e){return console.warn(e)}function w(e){return"non-scaling-stroke"===e.getAttribute("vector-effect")}function z(e){if(!(e=k(e)[0]))return 0;var t,r,n,i,o,a,f,h=e.tagName.toLowerCase(),l=e.style,d=1,c=1;w(e)&&(c=e.getScreenCTM(),d=D(c.a*c.a+c.b*c.b),c=D(c.d*c.d+c.c*c.c));try{r=e.getBBox()}catch(e){v("Some browsers won't measure invisible elements (like display:none or masks inside defs).")}var g=r||{x:0,y:0,width:0,height:0},_=g.x,y=g.y,x=g.width,m=g.height;if(r&&(x||m)||!M[h]||(x=s(e,M[h][0]),m=s(e,M[h][1]),"rect"!==h&&"line"!==h&&(x*=2,m*=2),"line"===h&&(_=s(e,"x1"),y=s(e,"y1"),x=Math.abs(x-_),m=Math.abs(m-y))),"path"===h)i=l.strokeDasharray,l.strokeDasharray="none",t=e.getTotalLength()||0,p(d)!==p(c)&&!b&&(b=1)&&v("Warning: <path> length cannot be measured when vector-effect is non-scaling-stroke and the element isn't proportionally scaled."),t*=(d+c)/2,l.strokeDasharray=i;else if("rect"===h)t=2*x*d+2*m*c;else if("line"===h)t=u(_,y,_+x,y+m,d,c);else if("polyline"===h||"polygon"===h)for(n=e.getAttribute("points").match(P)||[],"polygon"===h&&n.push(n[0],n[1]),t=0,o=2;o<n.length;o+=2)t+=u(n[o-2],n[o-1],n[o],n[o+1],d,c)||0;else"circle"!==h&&"ellipse"!==h||(a=x/2*d,f=m/2*c,t=Math.PI*(3*(a+f)-D((3*a+f)*(a+3*f))));return t||0}function A(e,t){if(!(e=k(e)[0]))return[0,0];t=t||z(e)+1;var r=f.getComputedStyle(e),n=r.strokeDasharray||"",s=q(r.strokeDashoffset),i=n.indexOf(",");return i<0&&(i=n.indexOf(" ")),t<(n=i<0?t:q(n.substr(0,i)))&&(n=t),[-s||0,n-s||0]}function B(){l()&&(f=window,d=t=m(),k=t.utils.toArray,c=t.core.getStyleSaver,g=t.core.reverting||function(){},h=-1!==((f.navigator||{}).userAgent||"").indexOf("Edge"))}var t,k,f,h,d,b,c,g,P=/[-+=\.]*\d+[\.e\-\+]*\d*[e\-\+]*\d*/gi,M={rect:["width","height"],circle:["r","r"],ellipse:["rx","ry"],line:["x2","y2"]},D=Math.sqrt,n={version:"3.15.0",name:"drawSVG",register:function register(e){t=e,B()},init:function init(e,t,n){if(!e.getBBox)return!1;d||B();var s,i,o,a=z(e);return this.styles=c&&c(e,"strokeDashoffset,strokeDasharray,strokeMiterlimit"),this.tween=n,this._style=e.style,this._target=e,t+""=="true"?t="0 100%":t?-1===(t+"").indexOf(" ")&&(t="0 "+t):t="0 0",i=function _parse(e,t,n){var s,i,o=e.indexOf(" ");return i=o<0?(s=void 0!==n?n+"":e,e):(s=e.substr(0,o),e.substr(o+1)),s=r(s,t),(i=r(i,t))<s?[i,s]:[s,i]}(t,a,(s=A(e,a))[0]),this._length=p(a),this._dash=p(s[1]-s[0]),this._offset=p(-s[0]),this._dashPT=this.add(this,"_dash",this._dash,p(i[1]-i[0]),0,0,0,0,0,1),this._offsetPT=this.add(this,"_offset",this._offset,p(-i[0]),0,0,0,0,0,1),h&&(o=f.getComputedStyle(e)).strokeLinecap!==o.strokeLinejoin&&(i=q(o.strokeMiterlimit),this.add(e.style,"strokeMiterlimit",i,i+.01)),this._live=w(e)||~(t+"").indexOf("live"),this._nowrap=~(t+"").indexOf("nowrap"),this._props.push("drawSVG"),1},render:function render(e,t){if(t.tween._time||!g()){var r,n,s,i,o=t._pt,a=t._style;if(o){for(t._live&&(r=z(t._target))!==t._length&&(n=r/t._length,t._length=r,t._offsetPT&&(t._offsetPT.s*=n,t._offsetPT.c*=n),t._dashPT?(t._dashPT.s*=n,t._dashPT.c*=n):t._dash*=n);o;)o.r(e,o.d),o=o._next;s=t._dash||e&&1!==e&&1e-4||0,r=t._length-s+.1,i=t._offset,s&&i&&s+Math.abs(i%t._length)>t._length-.05&&(i+=i<0?.005:-.005)&&(r+=.005),a.strokeDashoffset=s?i:i+.001,a.strokeDasharray=r<.1?"none":s?s+"px,"+(t._nowrap?999999:r)+"px":"0px, 999999px"}}else t.styles.revert()},getLength:z,getPosition:A};m()&&t.registerPlugin(n),e.DrawSVGPlugin=n,e.default=n;if (typeof(window)==="undefined"||window!==e){Object.defineProperty(e,"__esModule",{value:!0})} else {delete e.default}});
+
+</script>
+<script>/*!
  * CustomEase 3.15.0
  * https://gsap.com
  * 
@@ -162,219 +304,705 @@ th { font: 700 27px var(--mono); border-bottom: 2px solid var(--borda); }
 </head>
 <body>
 <div id="moldura"><div id="palco">
-  <section class="painel" id="painel-classe">
-    <h2>O código da classe <code>Tabela</code></h2>
-    <div class="codigo" id="classe"><div id="contorno-classe" aria-hidden="true"></div></div>
+  <header id="cabeca"><h1 id="titulo"></h1><p id="tipo"></p></header>
+  <div id="codigo" hidden></div><div id="memoria" hidden></div>
+
+  <section class="painel ator" id="painel-programa" data-alvo="programa" aria-label="O programa">
+    <svg class="icone" viewBox="0 0 56 56" aria-hidden="true"><rect x="3" y="7" width="50" height="42" rx="4"/><path d="M3 17 H53 M13 27 l8 6 l-8 6 M25 41 H37"/></svg>
+    <div><p class="nome">o programa</p><p class="papel">Python, com requests</p></div>
   </section>
-  <section class="painel" id="painel-dados">
-    <h2><code>decisoes</code>: um dicionário por decisão</h2>
-    <table id="dados"></table>
-    <p id="nota-dados"></p>
+  <div id="rede" aria-hidden="true"><p class="rede-rotulo">rede</p><svg viewBox="0 0 452 40"><path class="via" d="M14 20 H438"/><path class="via-ponta" d="M438 20 l-12 -7 v14 Z M14 20 l12 -7 v14 Z"/></svg></div>
+  <section class="painel ator" id="painel-servidor" data-alvo="servidor" aria-label="O servidor do Tribunal Fictício">
+    <svg class="icone" viewBox="0 0 56 56" aria-hidden="true"><path d="M4 18 L28 5 L52 18 Z M8 22 H48 M12 24 V44 M22 24 V44 M34 24 V44 M44 24 V44 M5 48 H51 M3 52 H53"/></svg>
+    <div><p class="nome">o servidor</p><div class="slot-valor recebido" data-slot="recebido" data-vazio="Tribunal Fictício"></div></div>
   </section>
-  <section class="painel" id="painel-tabela">
-    <h2><code>Tabela</code>: classe que vocês receberam pronta</h2>
-    <div class="celula" id="celula-tabela"><div class="marcador" id="marcador-tabela" aria-hidden="true"></div></div>
-    <div class="saida"><h3>saída da última linha</h3><div class="pilha" id="saida-tabela"></div><div class="igual" id="igual-tabela"><span>mesmo número</span></div></div>
+
+  <section class="painel" id="painel-pedido" data-grupo="pedido" aria-label="O pedido">
+    <h2>o pedido</h2>
+    <div class="linha-pedido">
+      <div class="parte"><div class="slot-valor" data-slot="metodo" data-vazio=""></div><p class="rotulo-parte">método</p></div>
+      <div class="parte"><div class="slot-valor" data-slot="caminho" data-vazio=""></div><p class="rotulo-parte">endereço</p></div>
+      <div class="parte"><div class="slot-valor" data-slot="parametros" data-vazio=""></div><p class="rotulo-parte">parâmetros, depois do ?</p></div>
+    </div>
+    <div class="campo"><p class="rotulo">cabeçalhos</p><div class="slot-valor" data-slot="cab-pedido" data-vazio=""></div></div>
   </section>
-  <section class="painel" id="painel-df">
-    <h2><code>DataFrame</code>: classe publicada no pandas</h2>
-    <div class="celula" id="celula-df"><div class="marcador" id="marcador-df" aria-hidden="true"></div></div>
-    <div class="saida"><h3>saída da última linha</h3><div class="pilha" id="saida-df"></div><div class="igual" id="igual-df"><span>mesmo número</span></div></div>
+  <section class="painel" id="painel-resposta" data-grupo="resposta" aria-label="A resposta">
+    <h2>a resposta <span class="slot-valor" data-slot="corte" data-vazio=""></span></h2>
+    <div class="campo"><p class="rotulo">código</p><div class="slot-valor carimbo" data-slot="status" data-vazio=""></div></div>
+    <div class="campo"><p class="rotulo">cabeçalhos</p><div class="slot-valor" data-slot="cab-resposta" data-vazio=""></div></div>
+    <div class="campo"><p class="rotulo">corpo</p><div class="slot-valor" data-slot="corpo" data-vazio=""></div></div>
   </section>
+
+  <section class="painel" id="painel-pedido-codigo" data-grupo="pedido-codigo" aria-label="O pedido deste passo e a resposta">
+    <h2>o pedido</h2>
+    <div class="bloco"><div class="slot-valor" data-slot="cod-caminho" data-vazio=""></div><div class="slot-valor" data-slot="cod-parametros" data-vazio=""></div></div>
+    <h2>a resposta</h2>
+    <div class="linha-carimbo"><div class="slot-valor carimbo" data-slot="cod-status" data-vazio=""></div><div class="slot-valor bloco-retry" data-slot="cod-retry" data-vazio=""></div></div>
+    <div class="bloco sobrepostos"><div class="slot-valor" data-slot="cod-corte" data-vazio=""></div><div class="slot-valor" data-slot="cod-corpo" data-vazio=""></div></div>
+  </section>
+  <section class="painel" id="painel-familias" data-grupo="familias" aria-label="Os códigos, por família">
+    <h2>os códigos</h2>
+    <div class="familia" data-alvo="familia-2"><h3>2xx · deu certo</h3><div class="slot-valor carimbo" data-slot="c200" data-vazio=""></div></div>
+    <div class="familia" data-alvo="familia-4"><h3>4xx · o pedido tem problema</h3>
+      <div class="slot-valor carimbo" data-slot="c401" data-vazio=""></div><div class="slot-valor carimbo" data-slot="c403" data-vazio=""></div>
+      <div class="slot-valor carimbo" data-slot="c404" data-vazio=""></div><div class="slot-valor carimbo" data-slot="c429" data-vazio=""></div></div>
+    <div class="familia" data-alvo="familia-5"><h3>5xx · o servidor falhou</h3><div class="slot-valor" data-slot="c5xx" data-vazio=""></div></div>
+  </section>
+
   <div id="narracao" aria-live="polite"></div>
+  <div id="focos" aria-hidden="true"></div>
+  <div id="setas" aria-hidden="true"></div>
   <div id="voos" aria-hidden="true"></div>
 </div></div>
 <div id="controles"></div>
 <script type="module">// ---- ./estados.js ----
-// Aula 19: a turma recebe a classe Tabela pronta, lê e usa. A animação põe essa classe ao lado do
-// pd.DataFrame: os dois objetos nascem da mesma lista de dicionários, e cada cenário roda uma
-// operação de cada lado. O código é o dos slides da aula ("Do processo à base inteira", "Ler a
-// classe Tabela" e "A Tabela e o DataFrame"). test-animacao-tabela-dataframe.py executa a
-// classe mostrada aqui e o pandas, e confere cada saída, o trecho destacado na classe e os números
-// citados na narração.
-
-const DECISOES = [
-  {classe: "Cível", resultado: "improcedente"},
-  {classe: "Juizado", resultado: "procedente"},
-  {classe: "Cível", resultado: "procedente"},
-];
-
-// A classe como a turma a recebe, sem linha em branco entre os métodos. A suíte roda estas linhas.
-const CLASSE = [
-  "class Tabela:",
-  "    def __init__(self, linhas):",
-  "        self.linhas = linhas",
-  "    def contar(self, campo, valor):",
-  "        achadas = []",
-  "        for linha in self.linhas:",
-  "            if linha[campo] == valor:",
-  "                achadas.append(linha)",
-  "        return len(achadas)",
-];
-
-// Linhas que criam o objeto de cada lado; a operação do cenário vem logo depois.
-const CRIAR_TABELA = ["tabela = Tabela(decisoes)"];
-const CRIAR_DF = ["import pandas as pd", "df = pd.DataFrame(decisoes)"];
-
-// Saídas como o notebook as mostra (a última expressão da célula), copiadas da execução real com
-// pandas 3; a suíte refaz e compara.
-// destaque: as linhas da classe que a operação da Tabela usa. Para um atributo, a linha do __init__
-// que o guarda; para um método, do def ao return.
-// igual: em cada saída, a linha que traz o número que os dois lados têm em comum.
-const OPERACOES = {
-  tamanho: {
-    tabela: "len(tabela.linhas)", df: "len(df)", destaque: [3, 3],
-    saidaTabela: "3",
-    saidaDf: "3",
-    igual: {tabela: 0, df: 0},
-    narrTabela: "tabela.linhas não tem parênteses: é um atributo. O len conta as linhas guardadas nele: 3.",
-    narrDf: "No DataFrame, len(df) conta as linhas: também 3.",
-    narrFim: "3 linhas nos dois lados: a mesma lista, guardada por duas classes.",
+// Aula 19: o que viaja numa requisição, como conceito e não como código. À esquerda, o programa;
+// à direita, o servidor do Tribunal Fictício; entre os dois, o pedido que vai e a resposta que volta.
+// - #pedido: a anatomia de um pedido (método, endereço, parâmetros depois do ?, cabeçalhos, com o
+//   cookie da sessão), a viagem e a anatomia da resposta (código, cabeçalhos, corpo);
+// - #codigos: um pedido por passo, cada um voltando com o código carimbado, na família dele.
+//
+// Todo valor na tela vem de RESPOSTAS (respostas.js), as respostas que o servidor deu de verdade,
+// gravadas pelo script de gravação que fica ao lado do servidor. A suíte test-animacao-requisicao.py
+// confere este módulo contra o arquivo gravado, e a suíte do servidor confere o arquivo contra o
+// servidor. O que a tela acrescenta é rótulo: o nome de cada parte e o significado curto de cada
+// código. O servidor não produz 500 (um erro no código dele derruba a conexão, sem resposta), então
+// o 5xx aparece só como família, sem carimbo.
+//
+// O pedido do #pedido é a segunda visita de uma requests.Session: a primeira já trouxe o cookie, e
+// esta o devolve no cabeçalho Cookie. O Host não está no gravado (o requests o acrescenta ao mandar, a
+// partir do endereço); a tela o escreve com o nome do servidor publicado, que é o do endereço.
+// ---- ./respostas.js ----
+// Respostas do servidor do Tribunal Fictício que as animações requisicao, cookie e pagina-javascript
+// mostram: cópia do arquivo de respostas gravadas que fica ao lado do servidor, onde o script de
+// gravação faz os pedidos com requests e guarda, de cada um, o pedido, o status, os cabeçalhos e o
+// corpo. Não editar à mão: a suíte test-animacao-requisicao.py confere que este módulo é o arquivo
+// gravado e, com --gerar, o reescreve a partir dele.
+const ENDERECO = "https://tribunal-ficticio-cdad.fly.dev";
+const RESPOSTAS = {
+  "processo": "0000101-95.2026.8.99.0001",
+  "sessao": [
+    {
+      "metodo": "GET",
+      "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+      "pedido": {
+        "User-Agent": "python-requests/2.34.2"
+      },
+      "status": 200,
+      "motivo": "OK",
+      "cabecalhos": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "898",
+        "Set-Cookie": "sessao=6d8013a8; Path=/; HttpOnly"
+      },
+      "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+    },
+    {
+      "metodo": "GET",
+      "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+      "pedido": {
+        "User-Agent": "python-requests/2.34.2",
+        "Cookie": "sessao=6d8013a8"
+      },
+      "status": 200,
+      "motivo": "OK",
+      "cabecalhos": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "898"
+      },
+      "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+    },
+    {
+      "metodo": "GET",
+      "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+      "pedido": {
+        "User-Agent": "python-requests/2.34.2",
+        "Cookie": "sessao=6d8013a8"
+      },
+      "status": 200,
+      "motivo": "OK",
+      "cabecalhos": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "898"
+      },
+      "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+    }
+  ],
+  "codigos": {
+    "200": {
+      "metodo": "GET",
+      "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+      "pedido": {
+        "User-Agent": "python-requests/2.34.2"
+      },
+      "status": 200,
+      "motivo": "OK",
+      "cabecalhos": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "898",
+        "Set-Cookie": "sessao=e5c357ce; Path=/; HttpOnly"
+      },
+      "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+    },
+    "404": {
+      "metodo": "GET",
+      "caminho": "/api/processo?numero=0000999-11.2026.8.99.0001",
+      "pedido": {
+        "User-Agent": "python-requests/2.34.2"
+      },
+      "status": 404,
+      "motivo": "Not Found",
+      "cabecalhos": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "82",
+        "Set-Cookie": "sessao=723330ed; Path=/; HttpOnly"
+      },
+      "corpo": "{\n  \"erro\": \"processo não encontrado\",\n  \"numero\": \"0000999-11.2026.8.99.0001\"\n}\n"
+    },
+    "401": {
+      "metodo": "GET",
+      "caminho": "/api/advogado/processos",
+      "pedido": {
+        "User-Agent": "python-requests/2.34.2"
+      },
+      "status": 401,
+      "motivo": "Unauthorized",
+      "cabecalhos": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "44",
+        "Set-Cookie": "sessao=b6e3028d; Path=/; HttpOnly"
+      },
+      "corpo": "{\n  \"erro\": \"identificação necessária\"\n}\n"
+    },
+    "403": {
+      "metodo": "GET",
+      "caminho": "/api/processo?numero=0002828-27.2026.8.99.0001",
+      "pedido": {
+        "User-Agent": "python-requests/2.34.2"
+      },
+      "status": 403,
+      "motivo": "Forbidden",
+      "cabecalhos": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "89",
+        "Set-Cookie": "sessao=4b189f14; Path=/; HttpOnly"
+      },
+      "corpo": "{\n  \"erro\": \"processo em segredo de justiça\",\n  \"numero\": \"0002828-27.2026.8.99.0001\"\n}\n"
+    },
+    "429": {
+      "metodo": "GET",
+      "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+      "pedido": {
+        "User-Agent": "python-requests/2.34.2",
+        "Cookie": "sessao=963328cc"
+      },
+      "status": 429,
+      "motivo": "Too Many Requests",
+      "cabecalhos": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "48",
+        "Retry-After": "2"
+      },
+      "corpo": "{\n  \"erro\": \"pedidos demais: espere um pouco\"\n}\n"
+    }
   },
-  contar: {
-    tabela: 'tabela.contar("resultado", "procedente")', df: 'df["resultado"].value_counts()', destaque: [4, 9],
-    saidaTabela: "2",
-    saidaDf: "resultado\nprocedente      2\nimprocedente    1\nName: count, dtype: int64",
-    igual: {tabela: 0, df: 1},
-    narrTabela: "contar tem parênteses: é um método. Ele devolve quantas linhas têm resultado procedente: 2.",
-    narrDf: "value_counts() tem parênteses: também é um método. Ele conta cada valor da coluna resultado.",
-    narrFim: "2 procedentes nos dois lados. A Tabela conta um valor por vez; o DataFrame conta todos de uma vez.",
+  "limite": {
+    "seguidos": {
+      "respostas": [
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2"
+          },
+          "status": 200,
+          "motivo": "OK",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "898",
+            "Set-Cookie": "sessao=963328cc; Path=/; HttpOnly"
+          },
+          "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 200,
+          "motivo": "OK",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "898"
+          },
+          "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 200,
+          "motivo": "OK",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "898"
+          },
+          "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 200,
+          "motivo": "OK",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "898"
+          },
+          "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 200,
+          "motivo": "OK",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "898"
+          },
+          "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 429,
+          "motivo": "Too Many Requests",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "48",
+            "Retry-After": "2"
+          },
+          "corpo": "{\n  \"erro\": \"pedidos demais: espere um pouco\"\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 429,
+          "motivo": "Too Many Requests",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "48",
+            "Retry-After": "2"
+          },
+          "corpo": "{\n  \"erro\": \"pedidos demais: espere um pouco\"\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 429,
+          "motivo": "Too Many Requests",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "48",
+            "Retry-After": "2"
+          },
+          "corpo": "{\n  \"erro\": \"pedidos demais: espere um pouco\"\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 429,
+          "motivo": "Too Many Requests",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "48",
+            "Retry-After": "2"
+          },
+          "corpo": "{\n  \"erro\": \"pedidos demais: espere um pouco\"\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 429,
+          "motivo": "Too Many Requests",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "48",
+            "Retry-After": "2"
+          },
+          "corpo": "{\n  \"erro\": \"pedidos demais: espere um pouco\"\n}\n"
+        }
+      ],
+      "instantes": [
+        0.0,
+        0.01,
+        0.02,
+        0.03,
+        0.06,
+        0.08,
+        0.09,
+        0.11,
+        0.12,
+        0.13
+      ]
+    },
+    "com_intervalo": {
+      "respostas": [
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 200,
+          "motivo": "OK",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "898"
+          },
+          "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 200,
+          "motivo": "OK",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "898"
+          },
+          "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 200,
+          "motivo": "OK",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "898"
+          },
+          "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 200,
+          "motivo": "OK",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "898"
+          },
+          "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 200,
+          "motivo": "OK",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "898"
+          },
+          "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 200,
+          "motivo": "OK",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "898"
+          },
+          "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 200,
+          "motivo": "OK",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "898"
+          },
+          "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 200,
+          "motivo": "OK",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "898"
+          },
+          "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 200,
+          "motivo": "OK",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "898"
+          },
+          "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+        },
+        {
+          "metodo": "GET",
+          "caminho": "/api/processo?numero=0000101-95.2026.8.99.0001",
+          "pedido": {
+            "User-Agent": "python-requests/2.34.2",
+            "Cookie": "sessao=963328cc"
+          },
+          "status": 200,
+          "motivo": "OK",
+          "cabecalhos": {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": "898"
+          },
+          "corpo": "{\n  \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n  \"tribunal\": \"TJFIC\",\n  \"numeroProcesso\": \"00001019520268990001\",\n  \"grau\": \"G1\",\n  \"dataAjuizamento\": \"20260414093000\",\n  \"classe\": {\n    \"codigo\": 7,\n    \"nome\": \"Procedimento Comum Cível\"\n  },\n  \"assuntos\": [\n    {\n      \"codigo\": 7779,\n      \"nome\": \"Indenização por Dano Moral\"\n    }\n  ],\n  \"orgaoJulgador\": {\n    \"codigo\": 101,\n    \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n  },\n  \"movimentos\": [\n    {\n      \"codigo\": 26,\n      \"nome\": \"Distribuição\",\n      \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n    },\n    {\n      \"codigo\": 85,\n      \"nome\": \"Petição\",\n      \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n    },\n    {\n      \"codigo\": 51,\n      \"nome\": \"Conclusão\",\n      \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n    },\n    {\n      \"codigo\": 92,\n      \"nome\": \"Publicação\",\n      \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n    }\n  ]\n}\n"
+        }
+      ],
+      "instantes": [
+        0.0,
+        0.51,
+        1.11,
+        1.64,
+        2.15,
+        2.66,
+        3.17,
+        3.67,
+        4.24,
+        4.75
+      ]
+    },
+    "intervalo": 0.5
   },
+  "painel": {
+    "pagina": {
+      "metodo": "GET",
+      "caminho": "/painel?pesquisa=dano+moral",
+      "pedido": {
+        "User-Agent": "python-requests/2.34.2"
+      },
+      "status": 200,
+      "motivo": "OK",
+      "cabecalhos": {
+        "Content-Type": "text/html; charset=utf-8",
+        "Content-Length": "2696",
+        "Set-Cookie": "sessao=4fe97370; Path=/; HttpOnly"
+      },
+      "corpo": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta name=\"robots\" content=\"noindex\">\n<title>Painel · Tribunal Fictício<\/title>\n<style>:root {\n  --fundo: #f4f3ef;\n  --papel: #ffffff;\n  --texto: #1f1f1d;\n  --apoio: #56544f;\n  --traco: #cbc7bd;\n  --marca: #34495e;\n}\n* { box-sizing: border-box; }\nbody { margin: 0; background: var(--fundo); color: var(--texto); font: 17px/1.5 system-ui, sans-serif; }\nheader { background: var(--marca); color: #fff; padding: 14px 16px; font-weight: 600; }\nmain { max-width: 880px; margin: 0 auto; padding: 8px 16px 40px; }\nh1 { font-size: 26px; margin: 24px 0 10px; }\nh2 { font-size: 20px; margin: 26px 0 8px; }\na { color: var(--marca); }\nform { display: flex; gap: 8px; margin: 0 0 16px; flex-wrap: wrap; }\ninput[type=text] { flex: 1; min-width: 200px; padding: 8px; font: inherit; border: 1px solid var(--traco); }\nbutton { padding: 8px 16px; font: inherit; background: var(--marca); color: #fff; border: 0; }\ntable { border-collapse: collapse; width: 100%; }\n#divDadosResultado > table > tbody > tr.fundocinza1, #divDadosResultado > table > tr.fundocinza1 {\n  background: var(--papel);\n  border: 1px solid var(--traco);\n}\n#divDadosResultado td { padding: 3px 10px; vertical-align: top; }\n.fonteNegrito { font-weight: 700; font-family: ui-monospace, Menlo, Consolas, monospace; }\n.resumo { color: var(--apoio); margin: 8px 0; }\n.ementa { color: var(--apoio); }\n.paginas { margin: 14px 0; display: flex; gap: 14px; }\npre {\n  background: #202122;\n  color: #f1f1f1;\n  padding: 12px 14px;\n  overflow-x: auto;\n  font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace;\n}\ncode { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .92em; }\n.aviso { background: var(--papel); border: 1px solid var(--traco); padding: 10px 14px; }\nfooter { max-width: 880px; margin: 0 auto; padding: 0 16px 28px; color: var(--apoio); font-size: 15px; }\n<\/style>\n<\/head>\n<body>\n<header>Tribunal Fictício · consulta para aula<\/header>\n<main>\n<h1>Painel de processos<\/h1>\n<p>Pesquisa: <strong>dano moral<\/strong><\/p>\n<ul id=\"lista\"><li>Carregando…<\/li><\/ul>\n<script type=\"module\">\nconst url = \"/api/processos?pesquisa=dano+moral\";\nconst resposta = await fetch(url);\nconst dados = await resposta.json();\nconst lista = document.getElementById(\"lista\");\nlista.innerHTML = \"\";\nfor (const item of dados.hits.hits) {\n  const linha = document.createElement(\"li\");\n  linha.textContent = item._source.numeroProcesso;\n  lista.append(linha);\n}\n<\/script>\n<\/main>\n<footer>Tribunal, magistrados, comarcas e processos são inventados, para uso em aula. Nada aqui é real.<\/footer>\n<\/body>\n<\/html>\n"
+    },
+    "api": {
+      "metodo": "GET",
+      "caminho": "/api/processos?pesquisa=dano+moral",
+      "pedido": {
+        "User-Agent": "python-requests/2.34.2"
+      },
+      "status": 200,
+      "motivo": "OK",
+      "cabecalhos": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "13499",
+        "Set-Cookie": "sessao=465546bf; Path=/; HttpOnly"
+      },
+      "corpo": "{\n  \"hits\": {\n    \"total\": {\n      \"value\": 24,\n      \"relation\": \"eq\"\n    },\n    \"hits\": [\n      {\n        \"_id\": \"TJFIC_7_G1_101_00001019520268990001\",\n        \"_source\": {\n          \"id\": \"TJFIC_7_G1_101_00001019520268990001\",\n          \"tribunal\": \"TJFIC\",\n          \"numeroProcesso\": \"00001019520268990001\",\n          \"grau\": \"G1\",\n          \"dataAjuizamento\": \"20260414093000\",\n          \"classe\": {\n            \"codigo\": 7,\n            \"nome\": \"Procedimento Comum Cível\"\n          },\n          \"assuntos\": [\n            {\n              \"codigo\": 7779,\n              \"nome\": \"Indenização por Dano Moral\"\n            }\n          ],\n          \"orgaoJulgador\": {\n            \"codigo\": 101,\n            \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n          },\n          \"movimentos\": [\n            {\n              \"codigo\": 26,\n              \"nome\": \"Distribuição\",\n              \"dataHora\": \"2026-04-14T09:30:00.000Z\"\n            },\n            {\n              \"codigo\": 85,\n              \"nome\": \"Petição\",\n              \"dataHora\": \"2026-06-14T14:00:00.000Z\"\n            },\n            {\n              \"codigo\": 51,\n              \"nome\": \"Conclusão\",\n              \"dataHora\": \"2026-08-14T10:00:00.000Z\"\n            },\n            {\n              \"codigo\": 92,\n              \"nome\": \"Publicação\",\n              \"dataHora\": \"2026-09-14T08:00:00.000Z\"\n            }\n          ]\n        }\n      },\n      {\n        \"_id\": \"TJFIC_436_JE_102_00002023520268990001\",\n        \"_source\": {\n          \"id\": \"TJFIC_436_JE_102_00002023520268990001\",\n          \"tribunal\": \"TJFIC\",\n          \"numeroProcesso\": \"00002023520268990001\",\n          \"grau\": \"JE\",\n          \"dataAjuizamento\": \"20260415093000\",\n          \"classe\": {\n            \"codigo\": 436,\n            \"nome\": \"Procedimento do Juizado Especial Cível\"\n          },\n          \"assuntos\": [\n            {\n              \"codigo\": 7779,\n              \"nome\": \"Indenização por Dano Moral\"\n            }\n          ],\n          \"orgaoJulgador\": {\n            \"codigo\": 102,\n            \"nome\": \"Vara do Juizado Especial Cível da Comarca de Vila Nova\"\n          },\n          \"movimentos\": [\n            {\n              \"codigo\": 26,\n              \"nome\": \"Distribuição\",\n              \"dataHora\": \"2026-04-15T09:30:00.000Z\"\n            },\n            {\n              \"codigo\": 85,\n              \"nome\": \"Petição\",\n              \"dataHora\": \"2026-06-15T14:00:00.000Z\"\n            },\n            {\n              \"codigo\": 51,\n              \"nome\": \"Conclusão\",\n              \"dataHora\": \"2026-08-15T10:00:00.000Z\"\n            },\n            {\n              \"codigo\": 92,\n              \"nome\": \"Publicação\",\n              \"dataHora\": \"2026-09-15T08:00:00.000Z\"\n            }\n          ]\n        }\n      },\n      {\n        \"_id\": \"TJFIC_7_G1_201_00004040920268990002\",\n        \"_source\": {\n          \"id\": \"TJFIC_7_G1_201_00004040920268990002\",\n          \"tribunal\": \"TJFIC\",\n          \"numeroProcesso\": \"00004040920268990002\",\n          \"grau\": \"G1\",\n          \"dataAjuizamento\": \"20260417093000\",\n          \"classe\": {\n            \"codigo\": 7,\n            \"nome\": \"Procedimento Comum Cível\"\n          },\n          \"assuntos\": [\n            {\n              \"codigo\": 7779,\n              \"nome\": \"Indenização por Dano Moral\"\n            }\n          ],\n          \"orgaoJulgador\": {\n            \"codigo\": 201,\n            \"nome\": \"2ª Vara Cível da Comarca de Campo Alegre\"\n          },\n          \"movimentos\": [\n            {\n              \"codigo\": 26,\n              \"nome\": \"Distribuição\",\n              \"dataHora\": \"2026-04-17T09:30:00.000Z\"\n            },\n            {\n              \"codigo\": 85,\n              \"nome\": \"Petição\",\n              \"dataHora\": \"2026-06-17T14:00:00.000Z\"\n            },\n            {\n              \"codigo\": 51,\n              \"nome\": \"Conclusão\",\n              \"dataHora\": \"2026-08-17T10:00:00.000Z\"\n            },\n            {\n              \"codigo\": 92,\n              \"nome\": \"Publicação\",\n              \"dataHora\": \"2026-09-17T08:00:00.000Z\"\n            }\n          ]\n        }\n      },\n      {\n        \"_id\": \"TJFIC_436_JE_202_00005054620268990002\",\n        \"_source\": {\n          \"id\": \"TJFIC_436_JE_202_00005054620268990002\",\n          \"tribunal\": \"TJFIC\",\n          \"numeroProcesso\": \"00005054620268990002\",\n          \"grau\": \"JE\",\n          \"dataAjuizamento\": \"20260418093000\",\n          \"classe\": {\n            \"codigo\": 436,\n            \"nome\": \"Procedimento do Juizado Especial Cível\"\n          },\n          \"assuntos\": [\n            {\n              \"codigo\": 7780,\n              \"nome\": \"Indenização por Dano Material\"\n            }\n          ],\n          \"orgaoJulgador\": {\n            \"codigo\": 202,\n            \"nome\": \"Vara do Juizado Especial Cível da Comarca de Campo Alegre\"\n          },\n          \"movimentos\": [\n            {\n              \"codigo\": 26,\n              \"nome\": \"Distribuição\",\n              \"dataHora\": \"2026-04-18T09:30:00.000Z\"\n            },\n            {\n              \"codigo\": 85,\n              \"nome\": \"Petição\",\n              \"dataHora\": \"2026-06-18T14:00:00.000Z\"\n            },\n            {\n              \"codigo\": 51,\n              \"nome\": \"Conclusão\",\n              \"dataHora\": \"2026-08-18T10:00:00.000Z\"\n            },\n            {\n              \"codigo\": 92,\n              \"nome\": \"Publicação\",\n              \"dataHora\": \"2026-09-18T08:00:00.000Z\"\n            }\n          ]\n        }\n      },\n      {\n        \"_id\": \"TJFIC_436_JE_302_00006068020268990003\",\n        \"_source\": {\n          \"id\": \"TJFIC_436_JE_302_00006068020268990003\",\n          \"tribunal\": \"TJFIC\",\n          \"numeroProcesso\": \"00006068020268990003\",\n          \"grau\": \"JE\",\n          \"dataAjuizamento\": \"20260421093000\",\n          \"classe\": {\n            \"codigo\": 436,\n            \"nome\": \"Procedimento do Juizado Especial Cível\"\n          },\n          \"assuntos\": [\n            {\n              \"codigo\": 7779,\n              \"nome\": \"Indenização por Dano Moral\"\n            }\n          ],\n          \"orgaoJulgador\": {\n            \"codigo\": 302,\n            \"nome\": \"Juizado Especial Cível da Comarca de Serra Azul\"\n          },\n          \"movimentos\": [\n            {\n              \"codigo\": 26,\n              \"nome\": \"Distribuição\",\n              \"dataHora\": \"2026-04-21T09:30:00.000Z\"\n            },\n            {\n              \"codigo\": 85,\n              \"nome\": \"Petição\",\n              \"dataHora\": \"2026-06-21T14:00:00.000Z\"\n            },\n            {\n              \"codigo\": 51,\n              \"nome\": \"Conclusão\",\n              \"dataHora\": \"2026-08-21T10:00:00.000Z\"\n            },\n            {\n              \"codigo\": 92,\n              \"nome\": \"Publicação\",\n              \"dataHora\": \"2026-09-21T08:00:00.000Z\"\n            }\n          ]\n        }\n      },\n      {\n        \"_id\": \"TJFIC_7_G1_301_00007072020268990003\",\n        \"_source\": {\n          \"id\": \"TJFIC_7_G1_301_00007072020268990003\",\n          \"tribunal\": \"TJFIC\",\n          \"numeroProcesso\": \"00007072020268990003\",\n          \"grau\": \"G1\",\n          \"dataAjuizamento\": \"20260422093000\",\n          \"classe\": {\n            \"codigo\": 7,\n            \"nome\": \"Procedimento Comum Cível\"\n          },\n          \"assuntos\": [\n            {\n              \"codigo\": 7752,\n              \"nome\": \"Bancários\"\n            }\n          ],\n          \"orgaoJulgador\": {\n            \"codigo\": 301,\n            \"nome\": \"Vara Única da Comarca de Serra Azul\"\n          },\n          \"movimentos\": [\n            {\n              \"codigo\": 26,\n              \"nome\": \"Distribuição\",\n              \"dataHora\": \"2026-04-22T09:30:00.000Z\"\n            },\n            {\n              \"codigo\": 85,\n              \"nome\": \"Petição\",\n              \"dataHora\": \"2026-06-22T14:00:00.000Z\"\n            },\n            {\n              \"codigo\": 51,\n              \"nome\": \"Conclusão\",\n              \"dataHora\": \"2026-08-22T10:00:00.000Z\"\n            },\n            {\n              \"codigo\": 92,\n              \"nome\": \"Publicação\",\n              \"dataHora\": \"2026-09-22T08:00:00.000Z\"\n            }\n          ]\n        }\n      },\n      {\n        \"_id\": \"TJFIC_7_G1_101_00008086320268990001\",\n        \"_source\": {\n          \"id\": \"TJFIC_7_G1_101_00008086320268990001\",\n          \"tribunal\": \"TJFIC\",\n          \"numeroProcesso\": \"00008086320268990001\",\n          \"grau\": \"G1\",\n          \"dataAjuizamento\": \"20260423093000\",\n          \"classe\": {\n            \"codigo\": 7,\n            \"nome\": \"Procedimento Comum Cível\"\n          },\n          \"assuntos\": [\n            {\n              \"codigo\": 11806,\n              \"nome\": \"Empréstimo consignado\"\n            }\n          ],\n          \"orgaoJulgador\": {\n            \"codigo\": 101,\n            \"nome\": \"1ª Vara Cível da Comarca de Vila Nova\"\n          },\n          \"movimentos\": [\n            {\n              \"codigo\": 26,\n              \"nome\": \"Distribuição\",\n              \"dataHora\": \"2026-04-23T09:30:00.000Z\"\n            },\n            {\n              \"codigo\": 85,\n              \"nome\": \"Petição\",\n              \"dataHora\": \"2026-06-23T14:00:00.000Z\"\n            },\n            {\n              \"codigo\": 51,\n              \"nome\": \"Conclusão\",\n              \"dataHora\": \"2026-08-23T10:00:00.000Z\"\n            },\n            {\n              \"codigo\": 92,\n              \"nome\": \"Publicação\",\n              \"dataHora\": \"2026-09-23T08:00:00.000Z\"\n            }\n          ]\n        }\n      },\n      {\n        \"_id\": \"TJFIC_436_JE_202_00009099720268990002\",\n        \"_source\": {\n          \"id\": \"TJFIC_436_JE_202_00009099720268990002\",\n          \"tribunal\": \"TJFIC\",\n          \"numeroProcesso\": \"00009099720268990002\",\n          \"grau\": \"JE\",\n          \"dataAjuizamento\": \"20260424093000\",\n          \"classe\": {\n            \"codigo\": 436,\n            \"nome\": \"Procedimento do Juizado Especial Cível\"\n          },\n          \"assuntos\": [\n            {\n              \"codigo\": 7779,\n              \"nome\": \"Indenização por Dano Moral\"\n            }\n          ],\n          \"orgaoJulgador\": {\n            \"codigo\": 202,\n            \"nome\": \"Vara do Juizado Especial Cível da Comarca de Campo Alegre\"\n          },\n          \"movimentos\": [\n            {\n              \"codigo\": 26,\n              \"nome\": \"Distribuição\",\n              \"dataHora\": \"2026-04-24T09:30:00.000Z\"\n            },\n            {\n              \"codigo\": 85,\n              \"nome\": \"Petição\",\n              \"dataHora\": \"2026-06-24T14:00:00.000Z\"\n            },\n            {\n              \"codigo\": 51,\n              \"nome\": \"Conclusão\",\n              \"dataHora\": \"2026-08-24T10:00:00.000Z\"\n            },\n            {\n              \"codigo\": 92,\n              \"nome\": \"Publicação\",\n              \"dataHora\": \"2026-09-24T08:00:00.000Z\"\n            }\n          ]\n        }\n      },\n      {\n        \"_id\": \"TJFIC_7_G1_301_00011117120268990003\",\n        \"_source\": {\n          \"id\": \"TJFIC_7_G1_301_00011117120268990003\",\n          \"tribunal\": \"TJFIC\",\n          \"numeroProcesso\": \"00011117120268990003\",\n          \"grau\": \"G1\",\n          \"dataAjuizamento\": \"20260428093000\",\n          \"classe\": {\n            \"codigo\": 7,\n            \"nome\": \"Procedimento Comum Cível\"\n          },\n          \"assuntos\": [\n            {\n              \"codigo\": 7779,\n              \"nome\": \"Indenização por Dano Moral\"\n            }\n          ],\n          \"orgaoJulgador\": {\n            \"codigo\": 301,\n            \"nome\": \"Vara Única da Comarca de Serra Azul\"\n          },\n          \"movimentos\": [\n            {\n              \"codigo\": 26,\n              \"nome\": \"Distribuição\",\n              \"dataHora\": \"2026-04-28T09:30:00.000Z\"\n            },\n            {\n              \"codigo\": 85,\n              \"nome\": \"Petição\",\n              \"dataHora\": \"2026-06-28T14:00:00.000Z\"\n            },\n            {\n              \"codigo\": 51,\n              \"nome\": \"Conclusão\",\n              \"dataHora\": \"2026-08-28T10:00:00.000Z\"\n            },\n            {\n              \"codigo\": 92,\n              \"nome\": \"Publicação\",\n              \"dataHora\": \"2026-09-28T08:00:00.000Z\"\n            }\n          ]\n        }\n      },\n      {\n        \"_id\": \"TJFIC_436_JE_102_00012121720268990001\",\n        \"_source\": {\n          \"id\": \"TJFIC_436_JE_102_00012121720268990001\",\n          \"tribunal\": \"TJFIC\",\n          \"numeroProcesso\": \"00012121720268990001\",\n          \"grau\": \"JE\",\n          \"dataAjuizamento\": \"20260429093000\",\n          \"classe\": {\n            \"codigo\": 436,\n            \"nome\": \"Procedimento do Juizado Especial Cível\"\n          },\n          \"assuntos\": [\n            {\n              \"codigo\": 7779,\n              \"nome\": \"Indenização por Dano Moral\"\n            }\n          ],\n          \"orgaoJulgador\": {\n            \"codigo\": 102,\n            \"nome\": \"Vara do Juizado Especial Cível da Comarca de Vila Nova\"\n          },\n          \"movimentos\": [\n            {\n              \"codigo\": 26,\n              \"nome\": \"Distribuição\",\n              \"dataHora\": \"2026-04-29T09:30:00.000Z\"\n            },\n            {\n              \"codigo\": 85,\n              \"nome\": \"Petição\",\n              \"dataHora\": \"2026-06-29T14:00:00.000Z\"\n            },\n            {\n              \"codigo\": 51,\n              \"nome\": \"Conclusão\",\n              \"dataHora\": \"2026-08-29T10:00:00.000Z\"\n            },\n            {\n              \"codigo\": 92,\n              \"nome\": \"Publicação\",\n              \"dataHora\": \"2026-09-29T08:00:00.000Z\"\n            }\n          ]\n        }\n      }\n    ]\n  }\n}\n"
+    }
+  }
 };
 
-const operacao = (id) => OPERACOES[id];
-const linhasTabela = (id) => [...CRIAR_TABELA, OPERACOES[id].tabela];
-const linhasDf = (id) => [...CRIAR_DF, OPERACOES[id].df];
+
+const animacao = "requisicao";
+const destino = "aula19/animacao-requisicao.html";
+const cenarios = [{id: "pedido", rotulo: "anatomia do pedido"}, {id: "codigos", rotulo: "os códigos"}];
+const titulo = () => "O que viaja numa requisição";
+const tipo = (id) => id === "pedido" ? "método, endereço, parâmetros, cabeçalhos; código, cabeçalhos, corpo" : "um pedido por passo, cada um com o seu código";
+const codigo = () => [];
+const memoria = () => [];
+
+// Quantas linhas do corpo cabem no painel da resposta.
+const LINHAS_DO_CORPO = 3;
+// Ordem dos pedidos do #codigos e o que cada código quer dizer, em poucas palavras.
+const SIGNIFICADO = {200: "achou", 404: "fora do cadastro", 401: "sem identificação", 403: "segredo de justiça", 429: "pedidos demais"};
+const ORDEM = [200, 404, 401, 403, 429];
+
+const host = () => new URL(ENDERECO).host;
+const partes = (caminho) => { const k = caminho.indexOf("?"); return k < 0 ? [caminho, null] : [caminho.slice(0, k), caminho.slice(k)]; };
+const linhasDoCorpo = (corpo) => corpo.replace(/\n$/, "").split("\n");
+// Os cabeçalhos da resposta que a tela mostra, na ordem do gravado, como "Nome: valor".
+const cabecalhos = (r, nomes) => nomes.filter((n) => r.cabecalhos[n] !== undefined).map((n) => `${n}: ${r.cabecalhos[n]}`);
+
+// Pedido e resposta do #pedido, montados do gravado. Da resposta sai só o tipo do conteúdo: o
+// servidor publicado passa por um proxy que comprime o corpo e tira o tamanho quando o requests aceita
+// compressão, o que ele faz por padrão; o tipo chega igual no servidor local e no publicado.
+function anatomia() {
+  const r = RESPOSTAS.sessao[1];
+  const [caminho, parametros] = partes(r.caminho);
+  const pedido = [`Host: ${host()}`, `User-Agent: ${r.pedido["User-Agent"]}`, `Cookie: ${r.pedido.Cookie}`];
+  const corpo = linhasDoCorpo(r.corpo);
+  return {metodo: r.metodo, caminho, parametros, pedido, status: `${r.status} ${r.motivo}`,
+    resposta: cabecalhos(r, ["Content-Type"]), corpo: corpo.slice(0, LINHAS_DO_CORPO), total: corpo.length};
+}
 
 function montar(id) {
-  const op = OPERACOES[id];
-  const passos = [];
-  // tabela e df: quantas linhas de cada célula já rodaram. marca: em cada lado, a linha que acabou de rodar.
-  // destaque: as linhas da classe que a operação usa. saidas: o que cada lado já mostrou.
-  // comparar: no último passo, a linha de cada saída que ganha o contorno de "mesmo número".
-  let s = {tabela: 0, df: 0, marca: null, destaque: null, saidas: {tabela: [], df: []}, comparar: null, narr: ""};
-  const add = (m, dur = 3000) => { s = {...s, ...m}; passos.push(JSON.parse(JSON.stringify({...s, dur}))); };
-  add({narr: "Aperte espaço para tocar. Setas avançam e voltam um passo."}, 1500);
-  add({tabela: 1, marca: {tabela: 0, df: null},
-    narr: "tabela é um objeto da classe Tabela. Ele guarda a lista decisoes."}, 3000);
-  add({df: 2, marca: {tabela: null, df: 1},
-    narr: "DataFrame também é uma classe. Outras pessoas escreveram e publicaram numa biblioteca, o pandas."}, 3600);
-  add({tabela: 2, marca: {tabela: 1, df: null}, destaque: op.destaque, saidas: {tabela: [op.saidaTabela], df: []}, narr: op.narrTabela}, 3600);
-  add({df: 3, marca: {tabela: null, df: 2}, destaque: null, saidas: {tabela: [op.saidaTabela], df: [op.saidaDf]}, narr: op.narrDf}, 3400);
-  add({marca: null, comparar: op.igual, narr: op.narrFim}, 3800);
-  return passos;
+  const estados = [];
+  let s = {linha: null, valores: {}, mostrar: [], foco: [], marcas: [], seta: null, consulta: null, voos: [], narr: ""};
+  const add = (m, dur = 3000) => {
+    s = {...s, foco: [], marcas: [], voos: [], ...m, valores: {...s.valores, ...(m.valores || {})}};
+    estados.push(JSON.parse(JSON.stringify({...s, dur})));
+  };
+  return id === "pedido" ? montarPedido(add, estados) : montarCodigos(add, estados);
 }
 
-const animacao = "tabela-dataframe";
-const destino = "aula19/animacao-tabela-dataframe.html";
-const cenarios = [{id: "tamanho", rotulo: "tamanho"}, {id: "contar", rotulo: "contar"}];
-const linhasPython = (id) => [...CLASSE, ...linhasTabela(id), ...linhasDf(id)];
+function montarPedido(add, estados) {
+  const a = anatomia();
+  const base = ["pedido"];
+  add({mostrar: base, narr: "Antes de sair, o requests monta um pedido em partes. Esta sessão já visitou o tribunal antes."}, 1500);
+  add({mostrar: base, valores: {metodo: a.metodo}, foco: [{slot: "metodo"}],
+    narr: "Primeiro, o método. GET quer dizer ler, sem mudar nada no servidor."});
+  add({mostrar: base, valores: {caminho: a.caminho}, foco: [{slot: "caminho"}],
+    narr: "Depois, o endereço: em que lugar do servidor está o que se quer."});
+  add({mostrar: base, valores: {parametros: a.parametros}, foco: [{slot: "parametros"}],
+    narr: "Depois do ponto de interrogação vêm os parâmetros, nome=valor. O params do requests vira este trecho."});
+  add({mostrar: base, valores: {"cab-pedido": a.pedido.join("\n")}, foco: [{slot: "cab-pedido", linha: 2}],
+    narr: "Os cabeçalhos vão junto, como bilhetes presos ao pedido: o servidor, o programa que pede e o cookie da sessão."});
+  add({mostrar: base, valores: {recebido: `${a.metodo} ${a.caminho}`},
+    voos: [{de: {slot: "metodo"}, para: {slot: "recebido"}, texto: `${a.metodo} ${a.caminho}${a.parametros}`}],
+    narr: "O pedido inteiro viaja pela rede até o servidor, que lê o método, o endereço, os parâmetros e os cabeçalhos."});
+  const comResposta = [...base, "resposta"];
+  add({mostrar: comResposta, valores: {status: a.status}, foco: [{slot: "status"}],
+    voos: [{de: {alvo: "servidor"}, para: {slot: "status"}, texto: a.status, atraso: 0.2}],
+    narr: "A resposta começa pelo código. 200 OK: deu certo."});
+  add({mostrar: comResposta, valores: {"cab-resposta": a.resposta.join("\n")}, foco: [{slot: "cab-resposta"}],
+    narr: "Depois, os cabeçalhos da resposta: o tipo do conteúdo, JSON em UTF-8."});
+  add({mostrar: comResposta, valores: {corpo: a.corpo.join("\n"), corte: `as ${a.corpo.length} primeiras das ${a.total} linhas`}, foco: [{slot: "corpo"}],
+    narr: "Por fim, o corpo: o processo, em JSON. É esse texto que resposta.json() transforma em dicionário."}, 3600);
+  return estados;
+}
 
-
-// ---- ../../comum/python.js ----
-// Python com as cores do tema claro do Colab, as mesmas que o Typst dá ao código do deck
-// (colab-claro.tmTheme); test-cores-python.py compara as duas, programa a
-// programa. colorirPython recebe uma linha de texto cru e devolve HTML escapado; colorirLinhas
-// recebe o programa inteiro, porque uma string de três aspas atravessa linhas e a cor de uma linha
-// depende de onde a anterior terminou.
-const PY_CONTROLE = new Set(["for", "if", "elif", "else", "while", "return", "break", "continue", "import", "from", "as", "try", "except", "finally", "with", "pass", "raise"]);
-const PY_PALAVRA = new Set(["not", "and", "or", "in", "is", "def", "class", "lambda", "True", "False", "None"]);
-const PY_EMBUTIDA = new Set(["print", "len", "str", "int", "float", "bool", "type", "range", "list", "dict", "set", "tuple", "sum", "min", "max", "round", "sorted", "abs", "input", "enumerate", "zip", "isinstance"]);
-// Nome de tipo que não é chamado (anotação, `[str, int]`, `x = str`) fica sem cor, como no Typst;
-// chamado, como em `int("7")`, tem a cor de embutida.
-const PY_TIPO = new Set(["int", "str", "float", "bool", "list", "dict", "set", "tuple"]);
-const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const cor = (classe, t) => t ? `<span class="py-${classe}">${esc(t)}</span>` : "";
-const TOKEN = /(#.*$)|([rRbBuUfF]{1,2})?("""|'''|"|')|(\b\d+(?:\.\d+)?\b)|([A-Za-z_À-ɏ][\wÀ-ɏ]*)|([\s\S])/y;
-
-// Miolo de string a partir de `ini`, até as aspas de fecho ou o fim da linha. Numa f-string, o que
-// está entre chaves é código e ganha as cores de código; as chaves ficam sem cor, e `{{`/`}}` é texto.
-function miolo(linha, ini, aspas, f) {
-  let i = ini, html = "", pedaco = "";
-  const soltar = () => { html += cor("texto", pedaco); pedaco = ""; };
-  while (i < linha.length) {
-    if (linha.startsWith(aspas, i)) { soltar(); return {html: html + cor("texto", aspas), fim: i + aspas.length, fechou: true}; }
-    if (linha[i] === "\\" && i + 1 < linha.length) { pedaco += linha.slice(i, i + 2); i += 2; continue; }
-    if (f && (linha.startsWith("{{", i) || linha.startsWith("}}", i))) { pedaco += linha.slice(i, i + 2); i += 2; continue; }
-    if (f && linha[i] === "{") {
-      const fecha = linha.indexOf("}", i);
-      if (fecha > i) { soltar(); html += "{" + colorirTrecho(linha.slice(i + 1, fecha), {}).html + "}"; i = fecha + 1; continue; }
-    }
-    pedaco += linha[i]; i++;
+function montarCodigos(add, estados) {
+  const mostrar = ["pedido-codigo", "familias"];
+  add({mostrar, narr: "Cada resposta traz um código de três dígitos. O primeiro dígito diz a família."}, 2000);
+  for (const codigo of ORDEM) {
+    const r = RESPOSTAS.codigos[codigo];
+    const [caminho, parametros] = partes(r.caminho);
+    const carimbo = `${r.status} ${r.motivo}`;
+    const erro = codigo === 200 ? null : linhasDoCorpo(r.corpo).join("\n");
+    const valores = {"cod-caminho": `${r.metodo} ${caminho}`, "cod-parametros": parametros, "cod-status": carimbo,
+      "cod-retry": r.cabecalhos["Retry-After"] ? `Retry-After: ${r.cabecalhos["Retry-After"]}` : null,
+      "cod-corpo": erro, "cod-corte": codigo === 200 ? `o corpo é o processo: ${linhasDoCorpo(r.corpo).length} linhas de JSON` : null,
+      ["c" + codigo]: `${codigo} ${SIGNIFICADO[codigo]}`};
+    add({mostrar, valores, foco: [{slot: "c" + codigo}],
+      voos: [{de: {slot: "cod-caminho"}, para: {alvo: "servidor"}, texto: `${r.metodo} ${caminho}`},
+        {de: {alvo: "servidor"}, para: {slot: "cod-status"}, texto: carimbo, atraso: 0.55},
+        {de: {alvo: "servidor"}, para: {slot: "c" + codigo}, texto: carimbo, atraso: 0.55}],
+      narr: NARRACAO_CODIGOS[codigo]}, 3400);
   }
-  soltar();
-  return {html, fim: i, fechou: false};
+  add({mostrar, valores: {c5xx: "nenhum nesta sequência"}, marcas: [{alvo: "familia-2"}, {alvo: "familia-4"}, {alvo: "familia-5"}],
+    narr: "2xx: deu certo. 4xx: o problema está no pedido. 5xx: o servidor falhou, e este não produz nenhum."}, 3600);
+  return estados;
 }
 
-// Colore uma linha de código a partir de um estado (string aberta ou não); devolve o HTML e o estado
-// para a linha seguinte.
-function colorirTrecho(linha, estado) {
-  let html = "", i = 0, aberta = estado.aberta || null;
-  // O `in` do cabeçalho do for é controle (roxo); fora dele, `in` é operador (azul), como no Colab.
-  let inDoFor = /^\s*for\b/.test(linha), anterior = "";
-  // Entre `from` e `import`, o nome do módulo fica sem cor, como no Typst.
-  let modulo = false;
-  // Na linha de `class`, a classe-mãe entre parênteses também fica sem cor, como no Typst.
-  const linhaDeClasse = /^\s*class\b/.test(linha);
-  let parenteses = 0;
-  // `self` fica sem cor, salvo como parâmetro na linha do def, como no Typst.
-  const linhaDeDef = /^\s*def\b/.test(linha);
-  if (aberta) {
-    const m = miolo(linha, 0, aberta.aspas, aberta.f);
-    html += m.html; i = m.fim;
-    if (m.fechou) aberta = null; else return {html, aberta};
-  }
-  while (i < linha.length) {
-    TOKEN.lastIndex = i;
-    const m = TOKEN.exec(linha), t = m[0];
-    const [, comentario, prefixo, aspas, numero, nome] = m;
-    if (comentario) html += cor("comentario", t);
-    else if (aspas) {
-      // O prefixo (f, r, b) tem a cor de palavra, como o Typst dá ao `f` de f-string.
-      html += cor("palavra", prefixo || "") + cor("texto", aspas);
-      const s = miolo(linha, i + t.length, aspas, /[fF]/.test(prefixo || ""));
-      html += s.html;
-      i = s.fim; anterior = aspas;
-      if (!s.fechou && aspas.length === 3) aberta = {aspas, f: /[fF]/.test(prefixo || "")};
-      continue;
-    }
-    else if (numero) html += cor("numero", t);
-    else if (nome && ((modulo && nome !== "import") || (linhaDeClasse && parenteses > 0)
-      || (nome === "self" && !linhaDeDef)
-      || (PY_TIPO.has(nome) && anterior !== "." && !/^\s*\(/.test(linha.slice(i + t.length))))) html += esc(t);
-    else if (nome) {
-      if (nome === "from") modulo = true;
-      if (nome === "import") modulo = false;
-      if (nome === "in" && inDoFor) { inDoFor = false; html += cor("controle", t); }
-      else if (PY_CONTROLE.has(nome)) html += cor("controle", t);
-      else if (PY_PALAVRA.has(nome)) html += cor("palavra", t);
-      // Depois de ponto é método, e método tem a cor de nome (`.append`), como no Colab.
-      else if (PY_EMBUTIDA.has(nome) && anterior !== ".") html += cor("embutida", t);
-      // Método especial (`__init__`) tem a cor de embutida, como no Typst.
-      else if (/^__\w+__$/.test(nome)) html += cor("embutida", t);
-      else html += cor("nome", t);
-    } else {
-      if (t === "(") parenteses++;
-      if (t === ")") parenteses--;
-      html += esc(t);
-    }
-    if (t.trim()) anterior = t;
-    i += t.length;
-  }
-  return {html, aberta};
-}
-
-function colorirLinhas(linhas) {
-  let estado = {};
-  return linhas.map((linha) => { const r = colorirTrecho(linha, estado); estado = {aberta: r.aberta}; return r.html; });
-}
-
-function colorirPython(linha) {
-  return colorirTrecho(linha, {}).html;
-}
+const NARRACAO_CODIGOS = {
+  200: "Um número que está no cadastro: 200 OK. O corpo traz o processo.",
+  404: "Um número com dígito válido que o tribunal não tem: 404 Not Found.",
+  401: "Uma rota só para advogados, pedida sem identificação: 401 Unauthorized.",
+  403: "O processo existe, mas está em segredo de justiça: 403 Forbidden. Ele não aparece em nenhuma busca.",
+  429: "Seis pedidos seguidos com a mesma sessão, em menos de 2 segundos: o sexto volta 429, e o Retry-After diz quantos segundos esperar.",
+};
 
 
-// ---- ../../comum/comum.js ----
+// ---- ../../comum/cena.js ----
+// Cena declarativa: cada estado descreve a tela inteira, e este módulo só desenha a passagem de um
+// estado ao seguinte, sem lógica de tema. Nasceu para as animações da aula 19 (http, raspagem,
+// paginacao) e serve a qualquer tema próprio cuja tela seja painéis de texto que trocam de valor.
+//
+// Campos de um estado (montado em src/<tema>/estados.js, sem DOM):
+// - linha: a linha do código que acabou de executar (null antes de o programa rodar);
+// - valores: {slot: texto | null}; cada elemento [data-slot] mostra o texto do passo, uma linha
+//   de tela por "\n", ou o aviso data-vazio quando é null;
+// - mostrar: grupos [data-grupo] visíveis no passo (entram e saem com fade);
+// - foco: referências com contorno cheio, que desliza de um passo ao outro (item corrente);
+// - marcas: referências com contorno tracejado, que entram e saem com fade (o que foi achado);
+// - seta: {de, para, calha}, desenhada progressivamente enquanto o passo dura; com `calha` (um x do
+//   palco), ela sai pela direita do trecho, desce por essa faixa vazia e chega pela direita do alvo,
+//   para não riscar os valores que ficam entre os dois;
+// - consulta: texto do painel de consulta (expressão → valor), ou null;
+// - voos: [{de, para, texto, estilo, atraso, largura}], cartões que viajam em arco neste passo;
+//   o slot de chegada troca de valor no instante em que o cartão pousa.
+// Referência (de, para, foco, marcas): {codigo: n, trecho} para o código (sem `codigo`, a linha
+// do passo), {slot, linha, trecho} para o valor mostrado num slot, {alvo, trecho} para um elemento
+// [data-alvo] desenhado pela página.
+// ---- ./comum.js ----
 // Peças que todas as animações compartilham: durações do roteiro, pilha de textos por passo,
 // medição no espaço do palco, voo de cartão, tocador sobre a timeline, teclas e escala do palco.
 // gsap e os plugins chegam como globais (scripts UMD), tanto no fonte quanto no dist.
@@ -633,117 +1261,327 @@ function iniciar({animacao, cenarios, rotulos, preparar, espera}) {
 }
 
 
-gsap.registerPlugin(MotionPathPlugin);
-const LADOS = ["tabela", "df"];
+// ---- ./python.js ----
+// Python com as cores do tema claro do Colab, as mesmas que o Typst dá ao código do deck
+// (colab-claro.tmTheme); test-cores-python.py compara as duas, programa a
+// programa. colorirPython recebe uma linha de texto cru e devolve HTML escapado; colorirLinhas
+// recebe o programa inteiro, porque uma string de três aspas atravessa linhas e a cor de uma linha
+// depende de onde a anterior terminou.
+const PY_CONTROLE = new Set(["for", "if", "elif", "else", "while", "return", "break", "continue", "import", "from", "as", "try", "except", "finally", "with", "pass", "raise"]);
+const PY_PALAVRA = new Set(["not", "and", "or", "in", "is", "def", "class", "lambda", "True", "False", "None"]);
+const PY_EMBUTIDA = new Set(["print", "len", "str", "int", "float", "bool", "type", "range", "list", "dict", "set", "tuple", "sum", "min", "max", "round", "sorted", "abs", "input", "enumerate", "zip", "isinstance"]);
+// Nome de tipo que não é chamado (anotação, `[str, int]`, `x = str`) fica sem cor, como no Typst;
+// chamado, como em `int("7")`, tem a cor de embutida.
+const PY_TIPO = new Set(["int", "str", "float", "bool", "list", "dict", "set", "tuple"]);
+const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const cor = (classe, t) => t ? `<span class="py-${classe}">${esc(t)}</span>` : "";
+const TOKEN = /(#.*$)|([rRbBuUfF]{1,2})?("""|'''|"|')|(\b\d+(?:\.\d+)?\b)|([A-Za-z_À-ɏ][\wÀ-ɏ]*)|([\s\S])/y;
 
-// A classe e a lista de dados não mudam entre cenários: desenhadas uma vez.
-const linhasClasse = CLASSE.map((linha, i) => $("classe").appendChild(criarEl("div", "linha-codigo",
-  `<span class="num">${i + 1}</span><span>${colorirPython(linha)}</span>`)));
-// As colunas da tabela e a frase sobre elas saem das chaves dos dicionários de DECISOES.
-const COLUNAS = Object.keys(DECISOES[0]);
-$("dados").innerHTML = `<tr>${COLUNAS.map((k) => `<th>${k}</th>`).join("")}</tr>` +
-  DECISOES.map((d) => `<tr>${COLUNAS.map((k) => `<td>${escapar(d[k])}</td>`).join("")}</tr>`).join("");
-$("nota-dados").innerHTML = "As chaves dos dicionários viram as colunas: " +
-  COLUNAS.map((k) => `<code>${k}</code>`).join(", ").replace(/, (?=[^,]*$)/, " e ") + ".";
-
-const saidaEl = (texto) => texto ? criarEl("pre", null, escapar(texto)) : criarEl("pre", "vazia", "nada rodou ainda");
-
-function preparar(cenario) {
-  const estados = montar(cenario);
-  const codigo = {tabela: linhasTabela(cenario), df: linhasDf(cenario)};
-  for (const id of ["saida-tabela", "saida-df", "narracao", "voos"]) { gsap.killTweensOf($(id).querySelectorAll("*")); $(id).innerHTML = ""; }
-  for (const lado of LADOS) for (const el of $("celula-" + lado).querySelectorAll(".linha-codigo")) el.remove();
-
-  const linhas = {}, saidas = {};
-  for (const lado of LADOS) {
-    linhas[lado] = codigo[lado].map((l, k) => $("celula-" + lado).appendChild(criarEl("div", "linha-codigo", `<span class="num">${k + 1}</span><span>${colorirPython(l)}</span>`)));
-    // A área de saída mostra a saída da última linha que rodou, como a célula de um notebook.
-    saidas[lado] = criarPilha($("saida-" + lado), estados.map((s) => s.saidas[lado][s.saidas[lado].length - 1] ?? ""), saidaEl);
-  }
-  const narracao = criarNarracao($("narracao"), estados.map((s) => s.narr));
-
-  // Posições medidas com tudo no lugar.
-  const topoLinha = (el) => el.offsetTop;
-  const faixaDaClasse = ([ini, fim]) => {
-    const a = linhasClasse[ini - 1], b = linhasClasse[fim - 1];
-    // A borda de cima fica dentro da primeira linha destacada, e não 3 px acima: ali ela cobriria o
-    // sublinhado de __init__, na linha anterior, que tem quase a mesma cor do contorno.
-    return {top: topoLinha(a), height: topoLinha(b) + b.offsetHeight - topoLinha(a) + 3};
-  };
-  const vooSaida = (lado, k, texto) => {
-    const cartao = $("voos").appendChild(criarEl("div", "cartao-voo saida-voo", escapar(texto)));
-    const o = caixa(linhas[lado][k]), d = caixa($("saida-" + lado));
-    const chegada = {x: d.x - 8, y: d.y - 2};
-    posicionarCartao(cartao, chegada);
-    return {cartao, origem: {x: o.x + 40, y: o.y}, chegada};
-  };
-  // Na criação, o nome decisoes sai do título da lista e pousa no argumento de cada classe.
-  const vooNome = (lado) => {
-    const cartao = $("voos").appendChild(criarEl("div", "cartao-voo nome-voo", "decisoes"));
-    const linha = linhas[lado].find((el) => el.textContent.includes("(decisoes)"));
-    const d = caixaTrecho(linha, "decisoes"), o = caixa($("painel-dados").querySelector("h2 code"));
-    const chegada = {x: d.x - 7, y: d.y - 4};
-    posicionarCartao(cartao, chegada);
-    return {cartao, origem: {x: o.x - 7, y: o.y - 4}, chegada};
-  };
-
-  // Estado do passo 0.
-  const s0 = estados[0];
-  for (const lado of LADOS) {
-    linhas[lado].forEach((el, k) => gsap.set(el, {autoAlpha: k < s0[lado] ? 1 : 0}));
-    gsap.set($("marcador-" + lado), {autoAlpha: 0, top: 0});
-    gsap.set($("igual-" + lado), {autoAlpha: 0});
-  }
-  gsap.set($("contorno-classe"), {autoAlpha: 0});
-  // O contorno de "mesmo número" fica na linha que o último estado indica, em cada saída.
-  const ultimo = estados.length - 1;
-  for (const lado of LADOS) {
-    const alto = parseFloat(getComputedStyle(saidas[lado].noPasso(ultimo)).lineHeight);
-    Object.assign($("igual-" + lado).style, {top: $("saida-" + lado).offsetTop + estados[ultimo].comparar[lado] * alto - 3 + "px", height: alto + 6 + "px"});
-  }
-
-  const marcaEm = (s, lado) => s.marca?.[lado] ?? null;
-  const aparecer = (alvo, t, dur = DUR.narracao) => tl.fromTo(alvo, {autoAlpha: 0}, {autoAlpha: 1, duration: dur, ease: "none", immediateRender: false}, t);
-  const sumir = (alvo, t, dur = DUR.narracao) => tl.fromTo(alvo, {autoAlpha: 1}, {autoAlpha: 0, duration: dur, ease: "none", immediateRender: false}, t);
-
-  const tl = gsap.timeline({paused: true});
-  tl.addLabel("p0", 0);
-  estados.forEach((s, i) => {
-    if (i === 0) return;
-    const a = estados[i - 1], t = tl.duration() + 0.001;
-    tl.to({}, {duration: 0.4}, t);
-    narracao.transicao(tl, i, t);
-    for (const lado of LADOS) {
-      // Linhas que rodaram neste passo aparecem com fade.
-      for (let k = a[lado]; k < s[lado]; k++) aparecer(linhas[lado][k], t);
-      // O marcador desliza até a linha que acabou de rodar; aparece e some com fade.
-      const antes = marcaEm(a, lado), depois = marcaEm(s, lado), marcador = $("marcador-" + lado);
-      if (depois !== null && antes !== null && depois !== antes) tl.to(marcador, {top: linhas[lado][depois].offsetTop, duration: DUR.marcador, ease: CURVA}, t);
-      else if (depois !== null && antes === null) { tl.set(marcador, {top: linhas[lado][depois].offsetTop}, t); aparecer(marcador, t, DUR.marcador); }
-      else if (depois === null && antes !== null) sumir(marcador, t, DUR.marcador);
-      // A saída nova viaja da linha até a área de saída e se fixa quando o cartão pousa.
-      let chegada;
-      if (s.saidas[lado].length > a.saidas[lado].length) {
-        const texto = s.saidas[lado][s.saidas[lado].length - 1];
-        const voo = vooSaida(lado, depois ?? s[lado] - 1, texto);
-        chegada = voar(tl, voo.cartao, voo.origem, voo.chegada, t);
-      }
-      saidas[lado].transicao(tl, i, t, chegada);
-      if (s[lado] > a[lado] && codigo[lado].slice(a[lado], s[lado]).some((l) => l.includes("(decisoes)"))) {
-        const voo = vooNome(lado);
-        voar(tl, voo.cartao, voo.origem, voo.chegada, t);
-      }
-      if (s.comparar && !a.comparar) aparecer($("igual-" + lado), t);
+// Miolo de string a partir de `ini`, até as aspas de fecho ou o fim da linha. Numa f-string, o que
+// está entre chaves é código e ganha as cores de código; as chaves ficam sem cor, e `{{`/`}}` é texto.
+function miolo(linha, ini, aspas, f) {
+  let i = ini, html = "", pedaco = "";
+  const soltar = () => { html += cor("texto", pedaco); pedaco = ""; };
+  while (i < linha.length) {
+    if (linha.startsWith(aspas, i)) { soltar(); return {html: html + cor("texto", aspas), fim: i + aspas.length, fechou: true}; }
+    if (linha[i] === "\\" && i + 1 < linha.length) { pedaco += linha.slice(i, i + 2); i += 2; continue; }
+    if (f && (linha.startsWith("{{", i) || linha.startsWith("}}", i))) { pedaco += linha.slice(i, i + 2); i += 2; continue; }
+    if (f && linha[i] === "{") {
+      const fecha = linha.indexOf("}", i);
+      if (fecha > i) { soltar(); html += "{" + colorirTrecho(linha.slice(i + 1, fecha), {}).html + "}"; i = fecha + 1; continue; }
     }
-    // O contorno aparece em volta das linhas da classe que a operação usa: o atributo lido ou o método chamado.
-    if (s.destaque && !a.destaque) { tl.set($("contorno-classe"), faixaDaClasse(s.destaque), t); aparecer($("contorno-classe"), t, DUR.marcador); }
-    else if (!s.destaque && a.destaque) sumir($("contorno-classe"), t, DUR.marcador);
-    tl.addLabel("p" + i, tl.duration());
-  });
-  return {estados, tl};
+    pedaco += linha[i]; i++;
+  }
+  soltar();
+  return {html, fim: i, fechou: false};
 }
 
-iniciar({animacao, cenarios: cenarios.map((c) => c.id), rotulos: cenarios.map((c) => c.rotulo), preparar, espera: (s) => s.dur});
+// Colore uma linha de código a partir de um estado (string aberta ou não); devolve o HTML e o estado
+// para a linha seguinte.
+function colorirTrecho(linha, estado) {
+  let html = "", i = 0, aberta = estado.aberta || null;
+  // O `in` do cabeçalho do for é controle (roxo); fora dele, `in` é operador (azul), como no Colab.
+  let inDoFor = /^\s*for\b/.test(linha), anterior = "";
+  // Entre `from` e `import`, o nome do módulo fica sem cor, como no Typst.
+  let modulo = false;
+  // Na linha de `class`, a classe-mãe entre parênteses também fica sem cor, como no Typst.
+  const linhaDeClasse = /^\s*class\b/.test(linha);
+  let parenteses = 0;
+  // `self` fica sem cor, salvo como parâmetro na linha do def, como no Typst.
+  const linhaDeDef = /^\s*def\b/.test(linha);
+  if (aberta) {
+    const m = miolo(linha, 0, aberta.aspas, aberta.f);
+    html += m.html; i = m.fim;
+    if (m.fechou) aberta = null; else return {html, aberta};
+  }
+  while (i < linha.length) {
+    TOKEN.lastIndex = i;
+    const m = TOKEN.exec(linha), t = m[0];
+    const [, comentario, prefixo, aspas, numero, nome] = m;
+    if (comentario) html += cor("comentario", t);
+    else if (aspas) {
+      // O prefixo (f, r, b) tem a cor de palavra, como o Typst dá ao `f` de f-string.
+      html += cor("palavra", prefixo || "") + cor("texto", aspas);
+      const s = miolo(linha, i + t.length, aspas, /[fF]/.test(prefixo || ""));
+      html += s.html;
+      i = s.fim; anterior = aspas;
+      if (!s.fechou && aspas.length === 3) aberta = {aspas, f: /[fF]/.test(prefixo || "")};
+      continue;
+    }
+    else if (numero) html += cor("numero", t);
+    else if (nome && ((modulo && nome !== "import") || (linhaDeClasse && parenteses > 0)
+      || (nome === "self" && !linhaDeDef)
+      || (PY_TIPO.has(nome) && anterior !== "." && !/^\s*\(/.test(linha.slice(i + t.length))))) html += esc(t);
+    else if (nome) {
+      if (nome === "from") modulo = true;
+      if (nome === "import") modulo = false;
+      if (nome === "in" && inDoFor) { inDoFor = false; html += cor("controle", t); }
+      else if (PY_CONTROLE.has(nome)) html += cor("controle", t);
+      else if (PY_PALAVRA.has(nome)) html += cor("palavra", t);
+      // Depois de ponto é método, e método tem a cor de nome (`.append`), como no Colab.
+      else if (PY_EMBUTIDA.has(nome) && anterior !== ".") html += cor("embutida", t);
+      // Método especial (`__init__`) tem a cor de embutida, como no Typst.
+      else if (/^__\w+__$/.test(nome)) html += cor("embutida", t);
+      else html += cor("nome", t);
+    } else {
+      if (t === "(") parenteses++;
+      if (t === ")") parenteses--;
+      html += esc(t);
+    }
+    if (t.trim()) anterior = t;
+    i += t.length;
+  }
+  return {html, aberta};
+}
+
+function colorirLinhas(linhas) {
+  let estado = {};
+  return linhas.map((linha) => { const r = colorirTrecho(linha, estado); estado = {aberta: r.aberta}; return r.html; });
+}
+
+function colorirPython(linha) {
+  return colorirTrecho(linha, {}).html;
+}
+
+
+const SVG = "http://www.w3.org/2000/svg";
+// Folga do contorno em volta do alvo: pouca na horizontal, porque em fonte mono o caractere vizinho
+// (o "[" antes do primeiro item de uma lista, por exemplo) começa colado ao alvo.
+const FOLGA_X = 2, FOLGA_Y = 3;
+
+function cena({animacao, cenarios, montar, codigo, titulo, tipo, memoria, desenhar}) {
+  gsap.registerPlugin(MotionPathPlugin, DrawSVGPlugin);
+
+  function preparar(id) {
+    const estados = montar(id), linhas = codigo(id);
+    for (const el of ["codigo", "memoria", "narracao", "setas", "voos", "focos", ...($("consulta") ? ["consulta"] : [])]) {
+      gsap.killTweensOf($(el).querySelectorAll("*"));
+      $(el).innerHTML = "";
+    }
+    $("titulo").textContent = titulo(id);
+    $("tipo").textContent = tipo(id);
+
+    // Memória: uma linha por variável que o cenário mostra, na ordem do módulo de estados. Linha com
+    // `fora` tem o slot desenhado pela própria página, noutro painel, e fica de fora daqui.
+    for (const m of memoria(id).filter((m) => !m.fora)) {
+      $("memoria").appendChild(criarEl("div", "variavel", `<code>${escapar(m.rotulo)}</code><div class="slot-valor" data-slot="${escapar(m.slot)}"></div>`));
+    }
+    // O que é próprio do tema (servidor, página HTML) a página desenha antes das medições.
+    if (desenhar) desenhar(id, estados);
+
+    // Código, com o marcador por baixo das linhas.
+    const marcador = $("codigo").appendChild(criarEl("div", null));
+    marcador.id = "marcador-linha";
+    const linhasCodigo = linhas.map((texto, k) => $("codigo").appendChild(
+      criarEl("div", "linha-codigo", `<span class="num">${k + 1}</span><span class="texto">${colorirPython(texto)}</span>`)));
+    const textoDaLinha = (n) => linhasCodigo[n - 1].querySelector(".texto");
+    const posLinha = (n) => ({y: linhasCodigo[n - 1].offsetTop, height: linhasCodigo[n - 1].offsetHeight});
+
+    // Slots: uma pilha de valores por elemento [data-slot], com a altura do maior valor.
+    const pilhas = {};
+    for (const el of $("palco").querySelectorAll("[data-slot]")) {
+      const chave = el.dataset.slot, vazio = el.dataset.vazio ?? "ainda não existe";
+      el.innerHTML = "";
+      pilhas[chave] = criarPilha(el, estados.map((s) => s.valores[chave] ?? null), (v) => v === null
+        ? criarEl("div", "v-vazio", escapar(vazio))
+        : criarEl("div", "v-valor", v.split("\n").map((l) => `<div class="l">${escapar(l) || " "}</div>`).join("")));
+      el.style.height = Math.max(...pilhas[chave].elementos.map((x) => x.offsetHeight)) + "px";
+    }
+    const pilhaConsulta = $("consulta") && criarPilha($("consulta"), estados.map((s) => s.consulta ?? null),
+      (texto) => texto ? criarEl("div", null, escapar(texto)) : criarEl("div", "ausente", "Nenhuma consulta neste passo."));
+    const narracao = criarNarracao($("narracao"), estados.map((s) => s.narr));
+
+    // Referência → caixa no palco, medida com o layout final.
+    function elementoDe(ref, i) {
+      if (ref.slot !== undefined) {
+        let el = pilhas[ref.slot].noPasso(i);
+        if (ref.linha !== undefined) { const ls = el.querySelectorAll(".l"); el = ls[ref.linha < 0 ? ls.length + ref.linha : ref.linha]; }
+        return el;
+      }
+      if (ref.alvo !== undefined) return $("palco").querySelector(`[data-alvo="${ref.alvo}"]`);
+      return textoDaLinha(ref.codigo ?? estados[i].linha);
+    }
+    function caixaDe(ref, i) {
+      const el = elementoDe(ref, i);
+      if (!el) { console.error(`${animacao}/${id}: referência sem elemento no passo ${i}: ${JSON.stringify(ref)}`); return {x: 0, y: 0, w: 0, h: 0}; }
+      const b = ref.trecho ? caixaTrecho(el, ref.trecho) : caixa(el);
+      if (!b) { console.error(`${animacao}/${id}: trecho não achado no passo ${i}: ${JSON.stringify(ref)}`); return caixa(el); }
+      return b;
+    }
+    const contorno = (b) => ({left: b.x - FOLGA_X, top: b.y - FOLGA_Y, width: b.w + 2 * FOLGA_X, height: b.h + 2 * FOLGA_Y});
+
+    // Contornos: um elemento por posição da lista de foco (cheio) e de marcas (tracejado).
+    const criarContornos = (campo, classe) => Array.from({length: Math.max(0, ...estados.map((s) => (s[campo] || []).length))},
+      () => $("focos").appendChild(criarEl("div", classe)));
+    const focos = criarContornos("foco", "foco"), marcas = criarContornos("marcas", "marca");
+    const posicoes = (campo) => estados.map((s, i) => (s[campo] || []).map((ref) => contorno(caixaDe(ref, i))));
+    const posFoco = posicoes("foco"), posMarca = posicoes("marcas");
+
+    // Setas e cartões de cada passo.
+    const svg = $("setas").appendChild(document.createElementNS(SVG, "svg"));
+    svg.setAttribute("viewBox", "0 0 1280 720");
+    const passos = estados.map((s, i) => {
+      const p = {voos: []};
+      if (s.seta) {
+        const a = caixaDe(s.seta.de, i), b = caixaDe(s.seta.para, i);
+        p.trecho = $("setas").appendChild(criarEl("div", "trecho"));
+        // A caixa desce 5 px abaixo do trecho: o sublinhado da fonte mono fica rente ao fim da linha, e
+        // uma borda mais justa o esconderia (class_ viraria "class ").
+        Object.assign(p.trecho.style, {left: a.x - 3 + "px", top: a.y - 3 + "px", width: a.w + 6 + "px", height: a.h + 8 + "px"});
+        const {d, ponta} = s.seta.calha === undefined ? caminhoDaSeta(a, b) : caminhoPelaCalha(a, b, s.seta.calha);
+        p.seta = svg.appendChild(document.createElementNS(SVG, "path"));
+        p.seta.setAttribute("d", d);
+        p.seta.setAttribute("class", "seta");
+        p.ponta = svg.appendChild(document.createElementNS(SVG, "path"));
+        p.ponta.setAttribute("d", ponta);
+        p.ponta.setAttribute("class", "ponta");
+      }
+      if (i === 0) return p;
+      for (const v of s.voos || []) {
+        const origem = caixaDe(v.de, i), destino = caixaDe(v.para, i);
+        const cartao = $("voos").appendChild(criarEl("div", "cartao-voo " + (v.estilo === "terminal" ? "terminal-voo" : "valor-voo"), escapar(v.texto)));
+        const chegada = {x: destino.x - 6, y: destino.y - 3};
+        if (v.largura === "destino") chegada.w = destino.w + 12;
+        posicionarCartao(cartao, chegada);
+        p.voos.push({cartao, origem: {x: origem.x - 6, y: origem.y - 3}, chegada, atraso: v.atraso || 0, slot: v.para.slot});
+      }
+      return p;
+    });
+
+    // Passo 0.
+    const s0 = estados[0];
+    const grupos = [...$("palco").querySelectorAll("[data-grupo]")];
+    const visivel = (s, g) => (s.mostrar || []).includes(g.dataset.grupo);
+    gsap.set(grupos, {autoAlpha: 0});
+    gsap.set(grupos.filter((g) => visivel(s0, g)), {autoAlpha: 1});
+    gsap.set([marcador, ...focos, ...marcas], {autoAlpha: 0});
+    if (s0.linha) gsap.set(marcador, {...posLinha(s0.linha), autoAlpha: 1});
+    posFoco[0].forEach((pos, k) => gsap.set(focos[k], {...pos, autoAlpha: 1}));
+    posMarca[0].forEach((pos, k) => gsap.set(marcas[k], {...pos, autoAlpha: 1}));
+    for (const p of passos) if (p.seta) { gsap.set([p.trecho, p.ponta], {autoAlpha: 0}); gsap.set(p.seta, {drawSVG: "0%"}); }
+
+    const tl = gsap.timeline({paused: true});
+    // fromTo com o ponto de partida explícito: um `to` gravaria o valor de partida no primeiro
+    // render, e depois de um seek esse valor pode ser o de outro passo.
+    const fade = (alvo, de, para, t, dur = DUR.narracao) => tl.fromTo(alvo, {autoAlpha: de}, {autoAlpha: para, duration: dur, ease: "none", immediateRender: false}, t);
+    tl.addLabel("p0", 0);
+    estados.forEach((s, i) => {
+      if (i === 0) return;
+      const a = estados[i - 1], t = tl.duration() + 0.001, p = passos[i], anterior = passos[i - 1];
+      tl.to({}, {duration: 0.4}, t);
+
+      if (!s.linha && a.linha) fade(marcador, 1, 0, t);
+      else if (s.linha && !a.linha) { tl.set(marcador, posLinha(s.linha), t); fade(marcador, 0, 1, t); }
+      else if (s.linha !== a.linha) tl.fromTo(marcador, posLinha(a.linha), {...posLinha(s.linha), duration: DUR.marcador, ease: CURVA, immediateRender: false}, t);
+
+      narracao.transicao(tl, i, t);
+      if (pilhaConsulta) pilhaConsulta.transicao(tl, i, t);
+      for (const g of grupos) if (visivel(a, g) !== visivel(s, g)) fade(g, visivel(a, g) ? 1 : 0, visivel(s, g) ? 1 : 0, t);
+
+      if (anterior.seta) { fade([anterior.trecho, anterior.ponta], 1, 0, t); tl.fromTo(anterior.seta, {drawSVG: "100%", autoAlpha: 1}, {autoAlpha: 0, duration: DUR.narracao, ease: "none", immediateRender: false}, t); }
+      if (p.seta) {
+        fade(p.trecho, 0, 1, t);
+        tl.fromTo(p.seta, {drawSVG: "0%", autoAlpha: 1}, {drawSVG: "100%", duration: DUR.seta, ease: CURVA, immediateRender: false}, t);
+        fade(p.ponta, 0, 1, t + DUR.seta - 0.1, 0.1);
+      }
+
+      focos.forEach((el, k) => {
+        const antes = posFoco[i - 1][k], agora = posFoco[i][k];
+        if (antes && agora) tl.fromTo(el, {...antes}, {...agora, duration: DUR.marcador, ease: CURVA, immediateRender: false}, t);
+        else if (agora) { tl.set(el, {...agora}, t); fade(el, 0, 1, t, DUR.marcador); }
+        else if (antes) fade(el, 1, 0, t, DUR.marcador);
+      });
+      marcas.forEach((el, k) => {
+        const antes = posMarca[i - 1][k], agora = posMarca[i][k];
+        // Comparação por texto das posições (GSAP guarda coisas no objeto de vars, por isso as cópias).
+        if (agora && (!antes || JSON.stringify(antes) !== JSON.stringify(agora))) { tl.set(el, {...agora}, t); fade(el, 0, 1, t); }
+        else if (antes && !agora) fade(el, 1, 0, t);
+      });
+
+      // Slot que recebe um cartão troca de valor quando o último cartão pousa; slot de onde sai
+      // um cartão atrasado mostra o valor novo antes de o cartão sair; os outros trocam com fade.
+      const pouso = {}, saida = {};
+      for (const v of p.voos) {
+        const chegou = voar(tl, v.cartao, v.origem, v.chegada, t + v.atraso);
+        if (v.slot !== undefined) pouso[v.slot] = Math.max(pouso[v.slot] ?? 0, chegou);
+      }
+      for (const v of s.voos || []) if (v.de.slot !== undefined && v.atraso) saida[v.de.slot] = Math.min(saida[v.de.slot] ?? Infinity, t + v.atraso - DUR.narracao);
+      for (const [chave, pilha] of Object.entries(pilhas)) {
+        if (!pilha.mudou(i)) continue;
+        if (pouso[chave] !== undefined) pilha.transicao(tl, i, t, pouso[chave]);
+        else pilha.transicao(tl, i, Math.max(t, saida[chave] ?? t));
+      }
+      tl.addLabel("p" + i, tl.duration());
+    });
+    return {estados, tl};
+  }
+
+  iniciar({animacao, cenarios: cenarios.map((c) => c.id), rotulos: cenarios.map((c) => c.rotulo), preparar, espera: (s) => s.dur});
+}
+
+// Caminho da seta de a (o trecho do código) até b (o campo consultado): sai pelo lado de a que
+// fica voltado para b e chega pela borda de b, com a ponta na direção da chegada.
+function caminhoDaSeta(a, b) {
+  let x1, y1, x2, y2, c1, c2;
+  if (b.x > a.x + a.w + 20) {
+    // Sai pelo canto de cima da caixa, acima do resto da linha (um .text depois do find, por exemplo).
+    x1 = a.x + a.w + 3; y1 = a.y - 1; x2 = b.x - 6; y2 = b.y + b.h / 2;
+    const m = (x2 - x1) / 2; c1 = [x1 + m, y1]; c2 = [x2 - m, y2];
+  } else if (b.x + b.w < a.x - 20) {
+    x1 = a.x - 3; y1 = a.y + a.h / 2; x2 = b.x + b.w + 6; y2 = b.y + b.h / 2;
+    const m = (x1 - x2) / 2; c1 = [x1 - m, y1]; c2 = [x2 + m, y2];
+  } else if (b.y > a.y + a.h) {
+    x1 = a.x + Math.min(a.w / 2, 80); y1 = a.y + a.h + 3; x2 = b.x + Math.min(b.w / 2, 60); y2 = b.y - 6;
+    const m = (y2 - y1) / 2; c1 = [x1, y1 + m]; c2 = [x2, y2 - m];
+  } else {
+    x1 = a.x + Math.min(a.w / 2, 80); y1 = a.y - 3; x2 = b.x + Math.min(b.w / 2, 60); y2 = b.y + b.h + 6;
+    const m = (y1 - y2) / 2; c1 = [x1, y1 - m]; c2 = [x2, y2 + m];
+  }
+  return {d: `M${x1},${y1} C${c1[0]},${c1[1]} ${c2[0]},${c2[1]} ${x2},${y2}`, ponta: pontaDaSeta(c2, [x2, y2])};
+}
+function caminhoPelaCalha(a, b, calha) {
+  const x1 = a.x + a.w + 3, y1 = a.y + a.h / 2, x2 = b.x + b.w + 6, y2 = b.y + b.h / 2, r = 10, desce = y2 > y1 ? 1 : -1;
+  const d = `M${x1},${y1} L${calha - r},${y1} Q${calha},${y1} ${calha},${y1 + desce * r} L${calha},${y2 - desce * r} Q${calha},${y2} ${calha - r},${y2} L${x2},${y2}`;
+  return {d, ponta: pontaDaSeta([calha - r, y2], [x2, y2])};
+}
+// Ponta triangular em `fim`, alinhada com a direção que vem de `antes`.
+function pontaDaSeta(antes, fim) {
+  const [x2, y2] = fim, ang = Math.atan2(y2 - antes[1], x2 - antes[0]), L = 12, W = 7;
+  const bx = x2 - L * Math.cos(ang), by = y2 - L * Math.sin(ang);
+  return `M${x2},${y2} L${bx + W * Math.sin(ang)},${by - W * Math.cos(ang)} L${bx - W * Math.sin(ang)},${by + W * Math.cos(ang)} Z`;
+}
+
+
+
+function desenhar() {
+  // As três partes da linha do pedido ficam lado a lado, cada uma com a largura do próprio texto (o
+  // método, mais o espaço que o separa do endereço), para o traço do rótulo embaixo marcar a parte.
+  const a = anatomia();
+  for (const parte of ["metodo", "caminho", "parametros"]) {
+    $("palco").querySelector(`[data-slot="${parte}"]`).style.width = `${a[parte].length + (parte === "metodo" ? 1 : 0)}ch`;
+  }
+}
+cena({animacao, cenarios, montar, codigo, titulo, tipo, memoria, desenhar});
 </script>
 </body>
 </html>
