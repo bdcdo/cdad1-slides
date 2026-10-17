@@ -87,11 +87,14 @@ async function montarDeVez() {
 // Uma montagem só, mesmo que a tecla seja apertada duas vezes antes de o estilo chegar.
 const montar = () => (montagem ??= montarDeVez());
 
-// Só http e https, e só a origem: o servidor responde na raiz, e um caminho colado no parâmetro não muda isso.
+// Só a origem: o servidor responde na raiz, e um caminho colado no parâmetro não muda isso. https obrigatório fora
+// da máquina local, porque a chave vai no cabeçalho; quem escolhe quais servidores valem é o visualizador.
+const LOCAIS = ['localhost', '127.0.0.1', '[::1]'];
 function origemDoServidor(texto) {
   try {
     const url = new URL(texto);
-    return ['http:', 'https:'].includes(url.protocol) ? url.origin : null;
+    const local = LOCAIS.includes(url.hostname) && ['http:', 'https:'].includes(url.protocol);
+    return url.protocol === 'https:' || local ? url.origin : null;
   } catch {
     return null;
   }
@@ -278,7 +281,8 @@ addEventListener('keydown', evento => {
   evento.stopImmediatePropagation();
 }, true);
 
-export async function abrir({ deck, pagina, chave, servidor }) {
+// `recusado` é o &servidor= que o visualizador não aceitou: o painel só avisa, sem pedir nada a servidor nenhum.
+export async function abrir({ deck, pagina, chave, servidor, recusado = null }) {
   await montar();
   if (painel.dialogo.open) return;
   parar();
@@ -288,6 +292,7 @@ export async function abrir({ deck, pagina, chave, servidor }) {
   avisar('');
   painel.dialogo.showModal();
   painel.dialogo.focus();
+  if (recusado) return avisar(`O servidor ${recusado} não é aceito pelo visualizador. Abra de novo com o endereço sem &servidor=, só com &chave=.`, true);
   const origem = origemDoServidor(servidor);
   if (!origem) return avisar('Falta o endereço do servidor da votação: abra o visualizador com &servidor= no endereço.', true);
   if (!chave) return avisar('Falta a chave do professor: abra o visualizador com &chave= no endereço.', true);
