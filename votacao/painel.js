@@ -1,9 +1,14 @@
 // Painel de votação do visualizador de slides. Abre sobre a página atual, com o QR code para a turma responder pelo
 // celular, a contagem ao vivo e, quando o professor pede, as respostas agrupadas em barras.
 //
-// O visualizador (ver.html) importa este módulo só quando a tecla V é usada e passa o deck, a página, a chave do
-// professor e o endereço do servidor: o módulo não lê a URL nem o armazenamento da aba. O servidor da votação mora
-// noutro domínio, e as rotas do professor só respondem com a chave no cabeçalho X-Chave.
+// O visualizador (ver.html) importa este módulo só quando a tecla V é usada e passa o deck, a página e a origem do
+// servidor, já conferida pela regra de lá (origemAceita): este módulo não lê a URL nem revalida o servidor. O
+// servidor da votação mora noutro domínio, e as rotas do professor só respondem com a chave no cabeçalho X-Chave.
+//
+// A chave do professor é digitada no próprio painel, num campo de senha, e nunca passa pelo endereço da página,
+// que vai para o histórico do navegador e para o registro de acesso do site. Aceita pelo servidor, ela fica no
+// sessionStorage desta aba, presa à origem do servidor com que foi aceita: outra origem pede a chave de novo, e
+// ela não vai para servidor nenhum além daquele. Chave recusada (403) sai da aba, e o painel volta a pedir.
 //
 // A contagem é uma consulta a cada 2 s, e não um canal aberto pelo servidor (SSE): o servidor atende cada conexão
 // com uma thread, e a consulta custa uma requisição curta, que também mantém a máquina do servidor acordada
@@ -13,6 +18,10 @@ import { encode } from '../uqr/uqr.mjs';
 const INTERVALO_MS = 2000;
 const TEMPO_LIMITE_MS = 8000;
 const SVG = 'http://www.w3.org/2000/svg';
+const CHAVE_DA_ABA = 'votacao:chave';
+// O servidor gera códigos de 4 caracteres de letras maiúsculas e algarismos (ALFABETO, no server.py). O código vai
+// para o QR e para o endereço projetado; fora deste formato, a resposta não é usada.
+const CODIGO_VALIDO = /^[A-Z0-9]{2,12}$/;
 
 const MOLDE = `
 <div class="votacao-corpo">
@@ -20,6 +29,13 @@ const MOLDE = `
   <div class="votacao-lado">
     <h2 class="votacao-titulo" id="votacao-titulo">Votação da turma</h2>
     <p class="votacao-endereco" hidden>Ou acesse <strong></strong></p>
+    <div class="votacao-chave" hidden>
+      <label for="votacao-chave-campo">Chave do professor</label>
+      <div class="votacao-chave-linha">
+        <input id="votacao-chave-campo" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button type="button" class="votacao-principal" data-acao="entrar">Entrar</button>
+      </div>
+    </div>
     <p class="votacao-contagem" hidden><span class="votacao-numero"></span> <span class="votacao-unidade"></span></p>
     <p class="votacao-estado" role="status"></p>
     <div class="votacao-acoes">
@@ -76,7 +92,11 @@ async function montarDeVez() {
     contagem: achar('.votacao-contagem'), numero: achar('.votacao-numero'), unidade: achar('.votacao-unidade'),
     estado: achar('.votacao-estado'), revelar: achar('[data-acao="revelar"]'), nova: achar('[data-acao="nova"]'),
     respostas: achar('.votacao-respostas'), grupos: achar('.votacao-grupos'), vazio: achar('.votacao-vazio'),
+    chave: achar('.votacao-chave'), campo: achar('#votacao-chave-campo'),
   };
+  // O campo não fica num <form>: não há envio que mude o endereço da página, e Enter no campo entra pela escuta de
+  // teclas, mais abaixo.
+  achar('[data-acao="entrar"]').addEventListener('click', entrar);
   painel.revelar.addEventListener('click', alternarRevelacao);
   painel.nova.addEventListener('click', () => abrirRodada(true));
   achar('[data-acao="fechar"]').addEventListener('click', () => dialogo.close());
@@ -87,17 +107,21 @@ async function montarDeVez() {
 // Uma montagem só, mesmo que a tecla seja apertada duas vezes antes de o estilo chegar.
 const montar = () => (montagem ??= montarDeVez());
 
-// Só a origem: o servidor responde na raiz, e um caminho colado no parâmetro não muda isso. https obrigatório fora
-// da máquina local, porque a chave vai no cabeçalho; quem escolhe quais servidores valem é o visualizador.
-const LOCAIS = ['localhost', '127.0.0.1', '[::1]'];
-function origemDoServidor(texto) {
+// A chave guardada para esta origem, ou null. Aba sem armazenamento: a chave é pedida a cada abertura.
+function chaveGuardada(origem) {
   try {
-    const url = new URL(texto);
-    const local = LOCAIS.includes(url.hostname) && ['http:', 'https:'].includes(url.protocol);
-    return url.protocol === 'https:' || local ? url.origin : null;
+    const par = JSON.parse(sessionStorage.getItem(CHAVE_DA_ABA));
+    return par?.servidor === origem && typeof par.chave === 'string' ? par.chave : null;
   } catch {
     return null;
   }
+}
+
+function guardarChave(origem, chave) {
+  try {
+    if (chave) sessionStorage.setItem(CHAVE_DA_ABA, JSON.stringify({ servidor: origem, chave }));
+    else sessionStorage.removeItem(CHAVE_DA_ABA);
+  } catch { /* aba sem armazenamento: nada a guardar */ }
 }
 
 function avisar(texto, erro = false) {
@@ -107,7 +131,8 @@ function avisar(texto, erro = false) {
 
 function modo(nome) {
   painel.dialogo.dataset.modo = nome;
-  const comRodada = nome !== 'aviso';
+  const comRodada = nome === 'coleta' || nome === 'revelado';
+  painel.chave.hidden = nome !== 'chave';
   painel.qr.hidden = !comRodada;
   painel.endereco.hidden = !comRodada;
   painel.contagem.hidden = !comRodada;
@@ -136,7 +161,6 @@ async function pedir(caminho, corpo) {
 }
 
 function mensagemDeErro({ status, dado }) {
-  if (status === 403) return 'O servidor recusou a chave do professor. Confira o &chave= do endereço.';
   if (status === 404) return 'Esta rodada expirou. Use Nova rodada para abrir outra.';
   return dado.erro ?? `O servidor da votação respondeu com erro ${status}.`;
 }
@@ -215,8 +239,9 @@ async function consultar(minha) {
     return agendar(minha);
   }
   if (minha !== geracao) return undefined;
-  // Chave recusada e rodada expirada não melhoram com o tempo: a consulta para e o aviso diz o que fazer.
-  if (resposta.status === 403 || resposta.status === 404) return avisar(mensagemDeErro(resposta), true);
+  // Chave recusada e rodada expirada não melhoram com o tempo: a consulta para e o painel diz o que fazer.
+  if (resposta.status === 403) return recusarChave();
+  if (resposta.status === 404) return avisar(mensagemDeErro(resposta), true);
   if (!resposta.ok) avisar(mensagemDeErro(resposta), true);
   else {
     avisar('');
@@ -226,7 +251,9 @@ async function consultar(minha) {
   return agendar(minha);
 }
 
+// Devolve false, sem mexer no painel, se o código não tem o formato dos que o servidor gera.
 function mostrarRodada(rodada) {
+  if (typeof rodada.codigo !== 'string' || !CODIGO_VALIDO.test(rodada.codigo)) return false;
   estado.codigo = rodada.codigo;
   estado.revelado = false;
   const endereco = new URL(`/${rodada.codigo}`, estado.origem);
@@ -235,6 +262,30 @@ function mostrarRodada(rodada) {
   painel.titulo.textContent = 'Responda pelo celular';
   mostrarContagem(rodada.total);
   modo('coleta');
+  return true;
+}
+
+function pedirChave(texto, erro = false) {
+  painel.titulo.textContent = 'Votação da turma';
+  painel.campo.value = '';
+  modo('chave');
+  avisar(texto, erro);
+  painel.campo.focus();
+}
+
+function recusarChave() {
+  parar();
+  guardarChave(null);
+  estado.chave = null;
+  estado.codigo = null;
+  pedirChave('O servidor recusou a chave do professor. Digite de novo.', true);
+}
+
+function entrar() {
+  const chave = painel.campo.value.trim();
+  if (!chave) return avisar('Digite a chave do professor.', true);
+  estado.chave = chave;
+  return abrirRodada(false);
 }
 
 async function abrirRodada(nova) {
@@ -245,15 +296,15 @@ async function abrirRodada(nova) {
   try {
     resposta = await pedir('/api/professor/rodadas', { deck: estado.deck, pagina: estado.pagina, nova });
   } catch {
-    if (minha === geracao) avisar('Sem conexão com o servidor da votação. Feche e aperte V de novo.', true);
+    if (minha === geracao) avisar('Sem conexão com o servidor da votação. Tente de novo.', true);
     return;
   }
   if (minha !== geracao) return;
-  if (!resposta.ok) {
-    avisar(mensagemDeErro(resposta), true);
-    return;
-  }
-  mostrarRodada(resposta.dado);
+  if (resposta.status === 403) return recusarChave();
+  if (!resposta.ok) return avisar(mensagemDeErro(resposta), true);
+  if (!mostrarRodada(resposta.dado)) return avisar('O servidor da votação respondeu com um código de rodada inválido.', true);
+  // Só a chave que abriu uma rodada fica guardada: a digitada errado, ou que não chegou ao servidor, não.
+  guardarChave(estado.origem, estado.chave);
   avisar(nova ? 'Rodada nova aberta. As respostas anteriores ficaram de fora.' : '');
   agendar(minha);
 }
@@ -270,19 +321,31 @@ function alternarRevelacao() {
 // Com o painel aberto, as teclas são dele: a seta e o espaço não mudam o slide que está por baixo, e o R revela em
 // vez de reiniciar a animação. A escuta é na fase de captura, que roda antes da escuta do visualizador, e a
 // interrompe. Tab, Enter e Esc seguem o comportamento do próprio diálogo, que não depende de escuta nenhuma; F
-// continua com o visualizador, para a tela cheia funcionar com o painel aberto.
+// continua com o visualizador, para a tela cheia funcionar com o painel aberto. No campo da chave, toda tecla é
+// do campo, inclusive R e F, e Enter entra.
+function teclaNoCampo(evento) {
+  evento.stopImmediatePropagation();
+  if (evento.key === 'Enter') {
+    evento.preventDefault();
+    entrar();
+  }
+}
+
 addEventListener('keydown', evento => {
   if (!painel?.dialogo.open || evento.altKey || evento.ctrlKey || evento.metaKey) return;
-  if (evento.key === 'f' || evento.key === 'F') return;
-  if (evento.key === 'r' || evento.key === 'R') {
+  if (evento.target === painel.campo) return teclaNoCampo(evento);
+  const tecla = evento.key.toLowerCase();
+  if (tecla === 'f') return;
+  if (tecla === 'r') {
     evento.preventDefault();
     alternarRevelacao();
   }
   evento.stopImmediatePropagation();
 }, true);
 
-// `recusado` é o &servidor= que o visualizador não aceitou: o painel só avisa, sem pedir nada a servidor nenhum.
-export async function abrir({ deck, pagina, chave, servidor, recusado = null }) {
+// `servidor` é a origem que o visualizador aceitou. `recusado` é o &servidor= que ele não aceitou: o painel só
+// avisa, sem pedir nada a servidor nenhum. `chaveIgnorada` diz que o endereço trazia &chave=, de um link antigo.
+export async function abrir({ deck, pagina, servidor, recusado = null, chaveIgnorada = false }) {
   await montar();
   if (painel.dialogo.open) return;
   parar();
@@ -292,10 +355,10 @@ export async function abrir({ deck, pagina, chave, servidor, recusado = null }) 
   avisar('');
   painel.dialogo.showModal();
   painel.dialogo.focus();
-  if (recusado) return avisar(`O servidor ${recusado} não é aceito pelo visualizador. Abra de novo com o endereço sem &servidor=, só com &chave=.`, true);
-  const origem = origemDoServidor(servidor);
-  if (!origem) return avisar('Falta o endereço do servidor da votação: abra o visualizador com &servidor= no endereço.', true);
-  if (!chave) return avisar('Falta a chave do professor: abra o visualizador com &chave= no endereço.', true);
-  estado = { origem, chave, deck, pagina, codigo: null, revelado: false };
+  if (recusado) return avisar(`O servidor ${recusado} não é aceito pelo visualizador. Abra de novo com o endereço sem &servidor=.`, true);
+  estado = { origem: servidor, chave: chaveGuardada(servidor), deck, pagina, codigo: null, revelado: false };
+  const ignorada = chaveIgnorada ? 'A chave que veio no endereço foi ignorada e tirada da barra: ela agora se digita no painel.' : '';
+  if (!estado.chave) return pedirChave(ignorada, chaveIgnorada);
   await abrirRodada(false);
+  if (ignorada && estado.codigo) avisar(ignorada);
 }

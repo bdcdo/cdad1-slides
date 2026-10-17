@@ -4,7 +4,7 @@
 // percorre. Bibliotecas de terceiros (pdfjs/, uqr/) ficam de fora: são cópias fiéis, e não código deste site.
 // Uso: npx --yes eslint@10.12.0 .
 const navegador = Object.fromEntries([
-  'AbortSignal', 'URL', 'addEventListener', 'clearTimeout', 'document', 'fetch', 'setTimeout',
+  'AbortSignal', 'URL', 'addEventListener', 'clearTimeout', 'document', 'fetch', 'sessionStorage', 'setTimeout',
 ].map(nome => [nome, 'readonly']));
 
 export default [
