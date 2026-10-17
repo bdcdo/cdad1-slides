@@ -43,6 +43,7 @@ html, body { margin: 0; height: 100%; background: var(--fundo); color: var(--tex
 // comum, com seção, título, régua e logo do PDF, e a animação ocupa só a área de conteúdo, pedida no
 // modo embutido (?embutido no src do iframe), em que ela esconde título, controles e narração.
 // Exemplo: ver.html?deck=aula-llm.pdf&moldura=slide#1
+// A tecla V abre a votação da turma na página atual (ver "Votação da turma", abaixo).
 import * as pdfjs from "./pdfjs/pdf.min.mjs";
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("./pdfjs/pdf.worker.min.mjs", location.href).href;
 
@@ -166,6 +167,7 @@ addEventListener("keydown", (e) => {
   else if (e.key === "Home") mostrar(1);
   else if (e.key === "End") mostrar(pdf.numPages);
   else if (e.key.toLowerCase() === "f") alternarTelaCheia();
+  else if (e.key === "v" || e.key === "V") abrirVotacao();
   else return;
   e.preventDefault();
 });
@@ -183,6 +185,71 @@ addEventListener("mousemove", mostrarBarra);
 addEventListener("resize", () => mostrar(atual));
 // Link para outro slide do mesmo deck (ver.html?deck=…#12) só muda o fragmento, sem recarregar.
 addEventListener("hashchange", () => mostrar(Number(location.hash.slice(1)) || 1));
+
+// Votação da turma, pela tecla V: um painel sobre a página atual, com o QR code, a contagem e as respostas, em
+// votacao/painel.js, que só é baixado na primeira vez que a tecla é usada. A chave do professor não passa pelo
+// endereço da página: o painel pede a chave num campo próprio e a guarda na sessão desta aba (ver painel.js).
+// Endereço com &chave=, de um link antigo, não guarda nada: o valor é ignorado, sai da barra logo na abertura e o
+// painel avisa que a chave agora se digita nele. Isso não desfaz a visita já gravada no histórico com a chave.
+//
+// &servidor= troca o servidor padrão por um servidor local de desenvolvimento. A chave vai no cabeçalho de cada
+// pedido ao servidor, então o servidor não pode ser qualquer um: só valem a origem de SERVIDOR_DA_VOTACAO e uma
+// origem local (localhost, 127.0.0.1, [::1]). origemAceita é a única regra disso no site, e o painel recebe a
+// origem já validada. Outro valor sai da barra, não é guardado, e o painel avisa.
+// Endereço padrão do servidor da votação, e o único lugar dele neste site.
+const SERVIDOR_DA_VOTACAO = "https://cdad-votacao.fly.dev";
+// O servidor de desenvolvimento escolhido por &servidor=, guardado na aba para valer depois de recarregar.
+const SERVIDOR_DA_ABA = "votacao:servidor";
+const LOCAIS = ["localhost", "127.0.0.1", "[::1]"];
+// A origem do servidor, se ele é aceito; null se não é. Fora da máquina local, só a origem padrão, que é https.
+function origemAceita(texto) {
+  try {
+    const url = new URL(texto);
+    if (url.origin === new URL(SERVIDOR_DA_VOTACAO).origin) return url.origin;
+    return ["http:", "https:"].includes(url.protocol) && LOCAIS.includes(url.hostname) ? url.origin : null;
+  } catch { return null; }
+}
+function servidorDaAba() {
+  try { return origemAceita(sessionStorage.getItem(SERVIDOR_DA_ABA)) ?? SERVIDOR_DA_VOTACAO; }
+  catch { return SERVIDOR_DA_VOTACAO; }
+}
+function gravarServidorDaAba(servidor) {
+  try {
+    if (servidor && servidor !== SERVIDOR_DA_VOTACAO) sessionStorage.setItem(SERVIDOR_DA_ABA, servidor);
+    else sessionStorage.removeItem(SERVIDOR_DA_ABA);
+  } catch { /* aba sem armazenamento: vale o servidor padrão */ }
+}
+// O que a abertura achou no endereço e o painel precisa contar: o servidor recusado e a chave ignorada.
+const avisosDoEndereco = {recusado: null, chaveIgnorada: false};
+function lerParametrosDaVotacao() {
+  // Filtra os pares no texto da query, sem remontá-la: URLSearchParams reescreveria "aula17/aula17.pdf" como
+  // "aula17%2Faula17.pdf" na barra de endereço.
+  const pares = location.search.slice(1).split("&");
+  const lidos = {};
+  const restantes = pares.filter((par) => {
+    const [[nome, valor] = []] = new URLSearchParams(par);
+    if (nome !== "chave" && nome !== "servidor") return true;
+    lidos[nome] = valor;
+    return false;
+  });
+  if (restantes.length === pares.length) return;
+  history.replaceState(null, "", location.pathname + "?" + restantes.join("&") + location.hash);
+  avisosDoEndereco.chaveIgnorada = "chave" in lidos;
+  if (!("servidor" in lidos)) return;
+  const servidor = origemAceita(lidos.servidor);
+  if (!servidor) avisosDoEndereco.recusado = lidos.servidor;
+  gravarServidorDaAba(servidor);
+}
+async function abrirVotacao() {
+  const avisos = {...avisosDoEndereco};
+  // Cada aviso aparece uma vez: a próxima tecla V já abre a votação normalmente.
+  Object.assign(avisosDoEndereco, {recusado: null, chaveIgnorada: false});
+  try {
+    const {abrir} = await import("./votacao/painel.js");
+    await abrir({deck: arquivo, pagina: atual, servidor: servidorDaAba(), ...avisos});
+  } catch (erro) { console.error("Votação:", erro); }
+}
+lerParametrosDaVotacao();
 
 try {
   pdf = await pdfjs.getDocument({url: arquivo}).promise;

@@ -1,0 +1,173 @@
+/* Painel de votação, aberto pela tecla V sobre o slide.
+
+   O painel toma o lugar do slide no projetor, e por isso é claro como a página do PDF, mesmo com o visualizador
+   escuro em volta. O QR fica sempre escuro sobre branco, que é o que a câmera do celular lê melhor.
+
+   Contrastes conferidos por cálculo (o teste de navegador recalcula sobre a página renderizada): --v-texto,
+   --v-texto-suave e --v-erro passam de 4,5:1 sobre --v-superficie; --v-sobre-acao passa de 4,5:1 sobre --v-acao;
+   --v-acao (barra, borda do botão principal, anel de foco) e --v-borda passam de 3:1 sobre --v-superficie. */
+.votacao {
+  --v-superficie: #ffffff;
+  --v-texto: #1b2027;
+  --v-texto-suave: #535c68;
+  --v-acao: #1f4fd1;
+  --v-acao-hover: #1a42ad;
+  --v-sobre-acao: #ffffff;
+  --v-borda: #7b838e;
+  --v-erro: #b42318;
+  --v-veu: rgb(16 24 40 / 0.6);
+  --v-qr-escuro: #000000;
+  --v-qr-claro: #ffffff;
+  --v-fonte: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --v-mono: ui-monospace, "SF Mono", "Cascadia Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+  --v-raio: 12px;
+  --v-raio-botao: 8px;
+  --v-folga: clamp(16px, 3dvh, 40px);
+  /* Lado do QR: o maior quadrado que cabe na altura do painel, sem passar da metade da largura. */
+  --v-qr: min(calc(94dvh - 2 * var(--v-folga)), 50vw);
+
+  color-scheme: light;
+  box-sizing: border-box;
+  width: min(96vw, 1800px);
+  height: 94dvh;
+  max-width: none;
+  max-height: none;
+  margin: auto;
+  padding: var(--v-folga);
+  border: 0;
+  border-radius: var(--v-raio);
+  background: var(--v-superficie);
+  color: var(--v-texto);
+  font-family: var(--v-fonte);
+  overflow: hidden;
+}
+.votacao::backdrop { background: var(--v-veu); }
+/* O diálogo recebe o foco ao abrir (ver painel.js) só para o espaço não acionar um botão; ele não é um controle, e
+   o contorno em volta do painel inteiro não diria nada. */
+.votacao:focus { outline: none; }
+.votacao *, .votacao *::before, .votacao *::after { box-sizing: border-box; }
+.votacao [hidden] { display: none !important; }
+
+.votacao-corpo {
+  height: 100%;
+  display: grid;
+  gap: clamp(16px, 3vw, 48px);
+  grid-template-columns: var(--v-qr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "qr lado";
+  align-items: center;
+}
+.votacao:is([data-modo="aviso"], [data-modo="chave"]) .votacao-corpo { grid-template-columns: minmax(0, 1fr); grid-template-areas: "lado"; }
+/* Respostas à mostra: as barras ficam com a maior parte da tela, e o QR encolhe para o canto, ainda legível para
+   quem chegar atrasado. */
+.votacao[data-modo="revelado"] {
+  --v-qr: min(30dvh, 22vw);
+}
+/* A coluna do lado é mais larga que o QR quando ele encolhe, para o rótulo do botão caber numa linha. */
+.votacao[data-modo="revelado"] .votacao-corpo {
+  grid-template-columns: minmax(0, 1fr) max(var(--v-qr), 22rem);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "respostas qr" "respostas lado";
+  align-items: start;
+}
+
+.votacao-qr { grid-area: qr; margin: 0; width: var(--v-qr); height: var(--v-qr); }
+.votacao-qr svg { display: block; width: 100%; height: 100%; }
+.votacao-qr-fundo { fill: var(--v-qr-claro); }
+.votacao-qr-modulos { fill: var(--v-qr-escuro); }
+
+.votacao-lado { grid-area: lado; display: grid; gap: clamp(12px, 2.4dvh, 28px); align-content: center; min-width: 0; }
+.votacao[data-modo="revelado"] .votacao-lado { align-content: start; gap: 12px; }
+
+.votacao-titulo {
+  margin: 0;
+  font-size: clamp(28px, 5.6dvh, 64px);
+  line-height: 1.15;
+  font-weight: 700;
+  text-wrap: balance;
+}
+.votacao-endereco { margin: 0; font-size: clamp(22px, 3.8dvh, 44px); line-height: 1.3; color: var(--v-texto-suave); }
+.votacao-endereco strong { display: block; color: var(--v-texto); font-family: var(--v-mono); overflow-wrap: anywhere; }
+.votacao-contagem { margin: 0; display: flex; align-items: baseline; gap: 0.3em; flex-wrap: wrap; }
+.votacao-numero { font-size: clamp(56px, 14dvh, 168px); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.votacao-unidade { font-size: clamp(22px, 4dvh, 44px); }
+.votacao-estado { margin: 0; min-height: 1.4em; font-size: clamp(16px, 2.4dvh, 24px); color: var(--v-texto-suave); }
+.votacao-estado.votacao-erro { color: var(--v-erro); font-weight: 600; }
+
+.votacao[data-modo="revelado"] .votacao-titulo { font-size: clamp(18px, 2.8dvh, 32px); }
+.votacao[data-modo="revelado"] .votacao-endereco { font-size: clamp(16px, 2.4dvh, 28px); }
+.votacao[data-modo="revelado"] .votacao-numero { font-size: clamp(36px, 7dvh, 84px); }
+.votacao[data-modo="revelado"] .votacao-unidade { font-size: clamp(16px, 2.4dvh, 28px); }
+
+.votacao-acoes { display: flex; flex-wrap: wrap; gap: 12px; }
+.votacao button {
+  min-height: 44px;
+  padding: 10px 18px;
+  font: 600 clamp(16px, 2.2dvh, 22px)/1.2 var(--v-fonte);
+  color: var(--v-texto);
+  background: var(--v-superficie);
+  border: 2px solid var(--v-borda);
+  border-radius: var(--v-raio-botao);
+  cursor: pointer;
+}
+.votacao button:hover { border-color: var(--v-texto); }
+.votacao .votacao-principal { color: var(--v-sobre-acao); background: var(--v-acao); border-color: var(--v-acao); }
+.votacao .votacao-principal:hover { background: var(--v-acao-hover); border-color: var(--v-acao-hover); }
+.votacao button:focus-visible, .votacao-chave input:focus-visible { outline: 3px solid var(--v-acao); outline-offset: 2px; }
+
+/* Campo da chave do professor, no lugar do QR enquanto a aba não tem a chave. */
+.votacao-chave { display: grid; gap: 8px; max-width: 40rem; }
+.votacao-chave label { font-size: clamp(18px, 2.6dvh, 28px); font-weight: 600; }
+.votacao-chave-linha { display: flex; flex-wrap: wrap; gap: 12px; }
+.votacao-chave input {
+  flex: 1 1 16rem;
+  min-height: 44px;
+  padding: 8px 12px;
+  font: 400 clamp(16px, 2.2dvh, 22px)/1.2 var(--v-mono);
+  color: var(--v-texto);
+  background: var(--v-superficie);
+  border: 2px solid var(--v-borda);
+  border-radius: var(--v-raio-botao);
+}
+
+.votacao-respostas { grid-area: respostas; height: 100%; overflow-y: auto; min-width: 0; }
+.votacao-grupos { margin: 0; padding: 0; list-style: none; display: grid; gap: clamp(12px, 2.2dvh, 24px); }
+.votacao-grupos li {
+  display: grid;
+  grid-template-columns: minmax(6ch, 38%) minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+}
+.votacao-texto {
+  font: 600 clamp(20px, 3.4dvh, 40px)/1.25 var(--v-mono);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.votacao-medida { display: flex; align-items: center; gap: 12px; min-width: 0; }
+/* A barra divide a linha com o número: 5ch ficam reservados para ele, e o maior grupo ocupa o resto. */
+.votacao-barra {
+  flex: none;
+  width: calc((100% - 5ch) * var(--fracao));
+  min-width: 4px;
+  height: clamp(20px, 3.6dvh, 44px);
+  background: var(--v-acao);
+  border-radius: 4px;
+}
+.votacao-quantos { font-size: clamp(20px, 3.4dvh, 40px); font-weight: 700; font-variant-numeric: tabular-nums; }
+.votacao-vazio { margin: 0; font-size: clamp(20px, 3.4dvh, 40px); color: var(--v-texto-suave); }
+.votacao-so-leitor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .votacao[open] { animation: votacao-entra 200ms ease-out; }
+  .votacao[open]::backdrop { animation: votacao-veu 200ms ease-out; }
+  .votacao button { transition: background-color 120ms ease-out, border-color 120ms ease-out; }
+}
+@keyframes votacao-entra { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes votacao-veu { from { opacity: 0; } to { opacity: 1; } }
