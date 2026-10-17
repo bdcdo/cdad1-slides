@@ -43,6 +43,7 @@ html, body { margin: 0; height: 100%; background: var(--fundo); color: var(--tex
 // comum, com seção, título, régua e logo do PDF, e a animação ocupa só a área de conteúdo, pedida no
 // modo embutido (?embutido no src do iframe), em que ela esconde título, controles e narração.
 // Exemplo: ver.html?deck=aula-llm.pdf&moldura=slide#1
+// Com &chave= e &servidor=, a tecla V abre a votação da turma na página atual (ver "Votação da turma", abaixo).
 import * as pdfjs from "./pdfjs/pdf.min.mjs";
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("./pdfjs/pdf.worker.min.mjs", location.href).href;
 
@@ -166,6 +167,7 @@ addEventListener("keydown", (e) => {
   else if (e.key === "Home") mostrar(1);
   else if (e.key === "End") mostrar(pdf.numPages);
   else if (e.key.toLowerCase() === "f") alternarTelaCheia();
+  else if (e.key === "v" || e.key === "V") abrirVotacao();
   else return;
   e.preventDefault();
 });
@@ -183,6 +185,74 @@ addEventListener("mousemove", mostrarBarra);
 addEventListener("resize", () => mostrar(atual));
 // Link para outro slide do mesmo deck (ver.html?deck=…#12) só muda o fragmento, sem recarregar.
 addEventListener("hashchange", () => mostrar(Number(location.hash.slice(1)) || 1));
+
+// Votação da turma, pela tecla V: um painel sobre a página atual, com o QR code, a contagem e as respostas, em
+// votacao/painel.js, que só é baixado na primeira vez que a tecla é usada. A chave do professor chega pelo endereço
+// da página (&chave=), assim como o servidor, quando não é o padrão (&servidor=); os dois saem da barra de endereço
+// logo na abertura, porque a barra aparece no projetor e vai para o histórico, e ficam na sessão desta aba como um
+// par. Sem a chave nada muda no visualizador, e a tecla só mostra o aviso do que falta.
+//
+// A chave vai no cabeçalho de cada pedido ao servidor, então o servidor não pode ser qualquer um: um link forjado
+// com &servidor=<outro site> faria a chave guardada na aba ir para lá. Só valem a origem de SERVIDOR_DA_VOTACAO e
+// um servidor local de desenvolvimento (localhost, 127.0.0.1, [::1]); outro valor é recusado, não é guardado, e o
+// painel avisa. A chave fica presa ao servidor com que chegou: se o servidor do par muda, ela é descartada.
+// Endereço padrão do servidor da votação, e o único lugar dele neste site.
+const SERVIDOR_DA_VOTACAO = "https://cdad-votacao.fly.dev";
+const PAR_DA_VOTACAO = "votacao:par";
+const LOCAIS = ["localhost", "127.0.0.1", "[::1]"];
+// A origem do servidor, se ele é aceito; null se não é. Fora da máquina local, só a origem padrão, que é https.
+function origemAceita(texto) {
+  try {
+    const url = new URL(texto);
+    if (url.origin === new URL(SERVIDOR_DA_VOTACAO).origin) return url.origin;
+    return ["http:", "https:"].includes(url.protocol) && LOCAIS.includes(url.hostname) ? url.origin : null;
+  } catch { return null; }
+}
+function lerParDaVotacao() {
+  try { return JSON.parse(sessionStorage.getItem(PAR_DA_VOTACAO)) ?? null; } catch { return null; }
+}
+function gravarParDaVotacao(par) {
+  try {
+    if (par) sessionStorage.setItem(PAR_DA_VOTACAO, JSON.stringify(par));
+    else sessionStorage.removeItem(PAR_DA_VOTACAO);
+  } catch { /* aba sem armazenamento: a tecla V avisa o que falta */ }
+}
+// O servidor recusado nesta abertura, para o painel dizer por que não abriu.
+let servidorRecusado = null;
+function guardarParametrosDaVotacao() {
+  // Filtra os pares no texto da query, sem remontá-la: URLSearchParams reescreveria "aula17/aula17.pdf" como
+  // "aula17%2Faula17.pdf" na barra de endereço.
+  const pares = location.search.slice(1).split("&");
+  const lidos = {};
+  const restantes = pares.filter((par) => {
+    const [[nome, valor] = []] = new URLSearchParams(par);
+    if (nome !== "chave" && nome !== "servidor") return true;
+    lidos[nome] = valor;
+    return false;
+  });
+  if (restantes.length === pares.length) return;
+  history.replaceState(null, "", location.pathname + "?" + restantes.join("&") + location.hash);
+  const servidor = origemAceita(lidos.servidor ?? SERVIDOR_DA_VOTACAO);
+  if (!servidor) {
+    // Recusado: nada se guarda, e a chave que a aba já tinha também sai, porque o link que chegou não é confiável.
+    servidorRecusado = lidos.servidor;
+    gravarParDaVotacao(null);
+    return;
+  }
+  const anterior = lerParDaVotacao();
+  const chave = lidos.chave ?? (anterior?.servidor === servidor ? anterior.chave : null);
+  gravarParDaVotacao(chave ? {servidor, chave} : null);
+}
+async function abrirVotacao() {
+  const par = lerParDaVotacao();
+  const servidor = par && origemAceita(par.servidor);
+  try {
+    const {abrir} = await import("./votacao/painel.js");
+    await abrir({deck: arquivo, pagina: atual, recusado: servidorRecusado,
+      servidor: servidor || SERVIDOR_DA_VOTACAO, chave: servidor ? par.chave : null});
+  } catch (erro) { console.error("Votação:", erro); }
+}
+guardarParametrosDaVotacao();
 
 try {
   pdf = await pdfjs.getDocument({url: arquivo}).promise;
