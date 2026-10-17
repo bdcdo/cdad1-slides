@@ -14,7 +14,7 @@ Com `&moldura=cheia` no endereço, que é como a página inicial abre toda aula,
 
 Em slide de pergunta, a tecla V abre sobre a página atual um painel com um QR code: a turma responde pelo celular, com texto curto, e o painel mostra quantos já responderam. R revela as respostas, agrupadas sem diferença entre maiúsculas e minúsculas, em barras com o número ao lado; Esc fecha. Ninguém é identificado e nada fica gravado. Voltar ao mesmo slide e apertar V reabre a mesma rodada; Nova rodada começa outra do zero.
 
-As respostas passam por um servidor de votação à parte. O endereço dele e a chave do professor não ficam neste repositório: entram pelo endereço da página, `ver.html?deck=…&servidor=<endereço>&chave=<chave>`, ficam guardados só na aba e saem da barra de endereço assim que a página abre. Sem os dois, nada muda no visualizador, e a tecla V só avisa o que falta. O endereço padrão, quando houver, vai na constante `SERVIDOR_DA_VOTACAO` do `ver.html`.
+As respostas passam por um servidor de votação à parte, cujo endereço fica na constante `SERVIDOR_DA_VOTACAO` do `ver.html`. A chave do professor não fica neste repositório: entra pelo endereço da página, `ver.html?deck=…&chave=<chave>`, fica guardada só na aba e sai da barra de endereço assim que a página abre. `&servidor=<endereço>`, do mesmo jeito, troca o servidor padrão por outro, como um servidor local de teste. Sem a chave, nada muda no visualizador, e a tecla V só avisa o que falta.
 
 O painel mora em `votacao/` e só é baixado quando a tecla é usada. O QR é gerado no navegador por `uqr/`: uqr 0.1.2, de Anthony Fu, derivado do gerador de QR de Project Nayuki, sob a licença MIT em `uqr/LICENSE`.
 

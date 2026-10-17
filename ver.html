@@ -187,12 +187,13 @@ addEventListener("resize", () => mostrar(atual));
 addEventListener("hashchange", () => mostrar(Number(location.hash.slice(1)) || 1));
 
 // Votação da turma, pela tecla V: um painel sobre a página atual, com o QR code, a contagem e as respostas, em
-// votacao/painel.js, que só é baixado na primeira vez que a tecla é usada. A chave do professor e o endereço do
-// servidor da votação chegam pelo endereço da página (&chave=, &servidor=), ficam na sessão desta aba e saem da
-// barra de endereço logo na abertura, porque a barra aparece no projetor e vai para o histórico. Sem os dois
-// parâmetros nada muda no visualizador, e a tecla só mostra o aviso do que falta.
-// Endereço padrão do servidor da votação, e o único lugar dele neste site. Vazio, ele precisa vir em &servidor=.
-const SERVIDOR_DA_VOTACAO = "";
+// votacao/painel.js, que só é baixado na primeira vez que a tecla é usada. A chave do professor chega pelo endereço
+// da página (&chave=), assim como o servidor, quando não é o padrão (&servidor=); os dois ficam na sessão desta aba
+// e saem da barra de endereço logo na abertura, porque a barra aparece no projetor e vai para o histórico. Sem a
+// chave nada muda no visualizador, e a tecla só mostra o aviso do que falta.
+// Endereço padrão do servidor da votação, e o único lugar dele neste site. &servidor= no endereço da página vale
+// mais que ele, para testar com um servidor local.
+const SERVIDOR_DA_VOTACAO = "https://cdad-votacao.fly.dev";
 const SESSAO_DA_VOTACAO = {chave: "votacao:chave", servidor: "votacao:servidor"};
 function guardarParametrosDaVotacao() {
   // Filtra os pares no texto da query, sem remontá-la: URLSearchParams reescreveria "aula17/aula17.pdf" como
