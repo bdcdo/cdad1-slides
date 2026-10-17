@@ -32,7 +32,7 @@ const MOLDE = `
     <div class="votacao-chave" hidden>
       <label for="votacao-chave-campo">Chave do professor</label>
       <div class="votacao-chave-linha">
-        <input id="votacao-chave-campo" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <input id="votacao-chave-campo" type="password" autocomplete="one-time-code" data-1p-ignore data-lpignore="true" autocapitalize="off" spellcheck="false">
         <button type="button" class="votacao-principal" data-acao="entrar">Entrar</button>
       </div>
     </div>
@@ -101,7 +101,10 @@ async function montarDeVez() {
   painel.nova.addEventListener('click', () => abrirRodada(true));
   achar('[data-acao="fechar"]').addEventListener('click', () => dialogo.close());
   // Esc fecha o diálogo pelo próprio navegador; o evento close cobre o Esc e o botão.
-  dialogo.addEventListener('close', parar);
+  dialogo.addEventListener('close', () => {
+    painel.campo.value = '';
+    parar();
+  });
   return painel;
 }
 // Uma montagem só, mesmo que a tecla seja apertada duas vezes antes de o estilo chegar.
@@ -154,6 +157,8 @@ async function pedir(caminho, corpo) {
     body: corpo ? JSON.stringify(corpo) : undefined,
     cache: 'no-store',
     referrerPolicy: 'no-referrer',
+    // Redirecionamento levaria o cabeçalho X-Chave a outro destino: recusa.
+    redirect: 'error',
     signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
   });
   const dado = await resposta.json().catch(() => ({}));
@@ -283,6 +288,8 @@ function recusarChave() {
 
 function entrar() {
   const chave = painel.campo.value.trim();
+  // A chave sai do campo assim que lida: só a aba guarda, e só depois de aceita.
+  painel.campo.value = '';
   if (!chave) return avisar('Digite a chave do professor.', true);
   estado.chave = chave;
   return abrirRodada(false);
