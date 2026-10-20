@@ -82,5 +82,23 @@
   "data": "qua 23/09",
   "titulo": "Aplicar uma regra a muitos casos",
   "arquivo": "aula14/aula14.pdf"
+ },
+ {
+  "aula": "16",
+  "data": "ter 13/10",
+  "titulo": "Funções",
+  "arquivo": "aula16/aula16.pdf"
+ },
+ {
+  "aula": "17",
+  "data": "qua 14/10",
+  "titulo": "Bibliotecas e classes, pelo programa do juscraper",
+  "arquivo": "aula17/aula17.pdf"
+ },
+ {
+  "aula": "18",
+  "data": "ter 20/10",
+  "titulo": "Como trabalhar na fase 2",
+  "arquivo": "aula18/aula18.pdf"
  }
 ]
