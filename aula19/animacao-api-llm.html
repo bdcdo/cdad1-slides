@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Raspar ou pedir os dados</title>
+<title>Chamar um modelo por API</title>
 <script>// Primeiro script da página, antes do GSAP e do módulo: o visualizador de slides manda End no
 // load do iframe, e o que chegar antes de a interface montar espera nesta fila. iniciar() em
 // comum.js instala window.tratarTecla e esvazia a fila.
@@ -72,148 +72,77 @@ html.cheio #controles { display: none; }
 html.recortado body { position: relative; overflow: clip; }
 </style>
 <style>
-/* Página de rastreio: código à esquerda; à direita, a memória (um quadro por chamada ativa), a
-   consulta do passo e a saída na tela; narração embaixo. */
-:root { --terminal: #1e1f22; --terminal-texto: #e8e8e8; --terminal-apoio: #c4c7cc; --terminal-erro: #ffb4ab; --quadro-funcao: #e3f0f9; --borda-funcao: #1f4e79; }
+:root { --terminal: #1e1f22; --terminal-texto: #e8e8e8; --terminal-apoio: #c4c7cc; --rede: #1f4e79; --rede-tinta: #e3f0f9; --perigo: #9f1c1c; --perigo-tinta: #fde8e8; }
 #cabeca { position: absolute; left: 28px; right: 28px; top: 12px; height: 38px; display: flex; align-items: baseline; justify-content: space-between; }
 #titulo { margin: 0; font-size: 25px; }
 #tipo { margin: 0; font-size: 18px; color: var(--apoio); }
 .painel { position: absolute; background: var(--painel); padding: 8px 12px; border-radius: 4px; }
 .painel h2 { margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--apoio); }
-#painel-codigo { left: 28px; top: 56px; width: 640px; height: 544px; }
-#painel-memoria { left: 684px; top: 56px; width: 568px; height: 348px; }
-#painel-consulta { left: 684px; top: 414px; width: 568px; height: 52px; padding-top: 5px; background: var(--atual); border-left: 6px solid var(--contorno); }
-#painel-consulta h2 { margin-bottom: 2px; }
-#painel-saida { left: 684px; top: 476px; width: 568px; height: 124px; padding-top: 6px; background: var(--terminal); }
-#painel-saida h2 { margin-bottom: 2px; color: var(--terminal-apoio); }
+.painel h2 b { color: var(--texto); }
+#painel-codigo { left: 28px; top: 56px; width: 612px; height: 342px; }
+#painel-ambiente { left: 28px; top: 408px; width: 612px; height: 56px; background: var(--rede-tinta); border-left: 6px solid var(--rede); }
+#painel-saida { left: 28px; top: 474px; width: 612px; height: 126px; background: var(--terminal); }
+#painel-saida h2 { color: var(--terminal-apoio); }
+#painel-variaveis { left: 656px; top: 56px; width: 596px; height: 136px; }
+#painel-pedido { left: 656px; top: 202px; width: 420px; height: 238px; }
+#painel-resposta { left: 656px; top: 448px; width: 420px; height: 152px; }
+#provedor { left: 1092px; top: 202px; width: 160px; height: 398px; background: var(--rede-tinta); border: 2px solid var(--rede); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 10px; }
+#provedor h2 { color: var(--rede); font-size: 17px; margin: 0; }
+#provedor p { margin: 0; font-size: 14px; color: var(--texto); }
+#provedor .servidor { width: 92px; display: grid; gap: 5px; }
+#provedor .estados-prov { display: grid; width: 140px; }
+#provedor .estados-prov p { grid-area: 1 / 1; font-weight: 700; color: var(--rede); }
+#provedor .servidor span { height: 20px; border: 2px solid var(--rede); border-radius: 3px; background: var(--fundo); }
+#painel-repositorio { left: 656px; top: 56px; width: 596px; height: 544px; }
 #narracao { position: absolute; left: 28px; right: 28px; top: 614px; height: 90px; border-left: 6px solid var(--realce); background: var(--painel); }
 #narracao .fala { margin: 0; padding: 12px 18px; font-size: 23px; line-height: 1.4; }
 
 #codigo { position: relative; }
-.linha-codigo { position: relative; z-index: 1; display: grid; grid-template-columns: 2.6em minmax(0, 1fr); padding: 2px 8px 2px 0;
-  font: 16px/1.4 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.linha-codigo { position: relative; z-index: 1; display: grid; grid-template-columns: 2.4em minmax(0, 1fr); padding: 1px 8px 1px 0;
+  font: 15px/1.3 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 .linha-codigo .num { color: var(--apoio); text-align: right; padding-right: .7em; user-select: none; }
-#marcador-linha { position: absolute; left: -4px; right: -4px; top: 0; height: 30px; background: var(--atual); border-left: 6px solid var(--contorno);
+.linha-codigo .texto { position: relative; }
+.linha-codigo .texto .camada { position: relative; }
+.linha-codigo .texto .camada + .camada { position: absolute; }
+#marcador-linha { position: absolute; left: -4px; right: -4px; top: 0; height: 24px; background: var(--atual); border-left: 6px solid var(--contorno);
   border-radius: 3px; z-index: 0; }
-#marcador-linha::before { content: "▶"; position: absolute; left: 2px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--contorno); }
-/* Linha que chamou uma função ainda ativa: contorno tracejado e o aviso escrito, sem depender da cor. */
-.espera { position: absolute; left: -4px; right: -4px; border: 2px dashed var(--borda-funcao); border-radius: 3px; z-index: 2; pointer-events: none; }
-/* O aviso é um comentário de Python: com #, na fonte do código e no verde dos comentários. */
-.espera span { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font: 16px/1.4 var(--mono); color: var(--py-comentario);
-  white-space: nowrap; }
+#marcador-linha::before { content: "▶"; position: absolute; left: 2px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--contorno); }
+.aviso-trecho { position: absolute; border: 3px solid var(--perigo); border-radius: 4px; z-index: 2; pointer-events: none; }
+.aviso-trecho span { position: absolute; right: 0; top: -24px; font: 700 14px var(--sans); color: #fff; background: var(--perigo); padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
 
-#memoria { position: relative; height: 300px; }
-.quadro { position: absolute; left: 0; right: 0; border: 2px solid var(--borda); border-radius: 6px; background: var(--fundo); padding: 4px 10px 6px; }
-.quadro.funcao { border-color: var(--borda-funcao); background: var(--quadro-funcao); }
-.quadro h3 { margin: 0 0 4px; font: 600 15px system-ui, sans-serif; color: var(--texto); }
-.quadro h3 small { font-weight: 400; color: var(--apoio); }
-.quadro.compacto { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; }
-.quadro.compacto h3 { grid-column: 1 / -1; }
-.quadro.compacto .variavel { grid-template-columns: 6.2em minmax(0, 1fr); }
-.variavel { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); gap: 8px; margin-top: 4px; }
-.variavel code { font: 700 16px var(--mono); padding-top: 3px; overflow-wrap: anywhere; }
-/* Cabeçalho das colunas de um quadro de chamada, e legenda no quadro de duas colunas. */
-.variavel.cabecalho span, .legenda { font: 600 12px system-ui, sans-serif; color: var(--apoio); }
-.legenda { grid-column: 1 / -1; margin-top: 2px; }
-.sem-variavel { position: absolute; left: 10px; font: italic 15px system-ui, sans-serif; color: var(--apoio); }
-/* Cartão das funções que o def já registrou, acima dos quadros: uma faixa de uma linha, para não
-   tirar dos quadros a altura do painel. */
-.funcoes { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: baseline; gap: 10px; border: 2px dashed var(--borda-funcao);
-  border-radius: 6px; background: var(--fundo); padding: 3px 10px 4px; }
-.funcoes h3 { margin: 0; font: 600 15px system-ui, sans-serif; color: var(--texto); white-space: nowrap; }
-.funcoes h3 small { font-weight: 400; color: var(--apoio); }
-.funcoes .lista { position: relative; flex: 1; display: flex; flex-wrap: wrap; gap: 2px 14px; min-height: 21px; }
-.funcoes .lista code { font: 700 15px var(--mono); }
-.funcoes .lista .ausente { position: absolute; left: 0; top: 0; font: italic 15px system-ui, sans-serif; color: var(--apoio); }
-.slot { position: relative; }
-.slot .camada { font: 15px/1.35 var(--mono); overflow-wrap: anywhere; white-space: pre-wrap; padding: 2px 5px; border-radius: 3px; }
-.slot .camada.ausente { font-family: system-ui, sans-serif; color: var(--apoio); font-style: italic; }
-.slot .camada.valor { background: var(--fundo); border: 2px solid var(--borda); }
+#ambiente { font: 16px var(--mono); }
+#ambiente .mascara { font-weight: 700; }
 
-#consulta { position: relative; height: 24px; }
-#consulta .camada { font: 16px var(--mono); overflow-wrap: anywhere; }
-#consulta .ausente { font-family: system-ui, sans-serif; color: var(--apoio); }
+.variavel { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 8px; height: 25px; align-items: center; }
+.variavel code { font: 700 15px var(--mono); }
+.variavel .valor { font: 14px/19px var(--mono); background: var(--fundo); border: 2px solid var(--borda); border-radius: 3px; padding: 0 5px; white-space: nowrap; overflow: hidden; }
 
-#stdout { margin: 0; font: 16px/1.3 var(--mono); position: relative; color: var(--terminal-texto); }
-#stdout .saida-linha { position: absolute; left: 0; right: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-#stdout .ausente { color: var(--terminal-apoio); font-family: system-ui, sans-serif; }
-#stdout .erro-linha { color: var(--terminal-erro); font-weight: 700; }
+.http { font: 13px/1.32 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+.http .chave-http { font-weight: 700; }
+.http .rotulo { font-family: var(--sans); font-weight: 700; color: var(--rede); }
+.vazio { position: absolute; left: 12px; top: 34px; margin: 0; font: italic 14px var(--sans); color: var(--apoio); }
 
-#setas .trecho { position: absolute; border: 2px solid var(--contorno); border-radius: 3px; }
-.cartao-voo.terminal-voo { font: 16px/1.3 var(--mono); background: var(--terminal); color: var(--terminal-texto); border-color: #8a8d95; padding: 1px 6px; white-space: pre; }
-.cartao-voo.retorno-voo { border-color: var(--borda-funcao); font-weight: 700; }
+#stdout { margin: 0; font: 15px/1.3 var(--mono); color: var(--terminal-texto); }
+#stdout .saida-linha { white-space: pre-wrap; overflow-wrap: anywhere; }
+#stdout .prompt { color: var(--terminal-apoio); }
+
+.commit { border: 2px solid var(--borda); border-radius: 6px; background: var(--fundo); padding: 10px 14px; margin-bottom: 14px; }
+.commit h3 { margin: 0 0 6px; font: 600 17px var(--sans); }
+.commit h3 small { font-weight: 400; color: var(--apoio); }
+.commit pre { margin: 0; font: 15px/1.4 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.commit .selo { display: inline-block; margin-top: 8px; font: 700 15px var(--sans); padding: 1px 8px; border-radius: 3px; }
+.commit.com-chave { border-color: var(--perigo); border-width: 3px; }
+.commit.com-chave .selo { color: #fff; background: var(--perigo); }
+.commit.sem-chave .selo { color: var(--texto); border: 2px solid var(--borda); }
+#leitores { font-size: 15px; color: var(--texto); margin: 2px 0 10px; }
+
+.cartao-voo.pedido-voo { font: 700 15px var(--sans); border-color: var(--rede); color: var(--rede); padding: 4px 10px; }
+.cartao-voo.terminal-voo { font: 15px/1.3 var(--mono); background: var(--terminal); color: var(--terminal-texto); border-color: #8a8d95; padding: 1px 6px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
 </style>
+<!-- Ajustes de layout do tema: cada pasta de tema traz o seu variante.css, também quando a página é link simbólico para esta. -->
 <style>
-/* Peças da cena declarativa (cena.js) que rastreio.css não traz: valores em slots, contornos de
-   foco e de marca, seta da consulta e o painel do servidor. As três animações da aula 19 usam. */
-[data-slot] { position: relative; }
-.v-valor .l, .v-vazio { min-height: 1.3em; }
-.slot-valor .v-valor { font: 14px/1.3 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; padding: 2px 5px; border-radius: 3px;
-  background: var(--fundo); border: 2px solid var(--borda); }
-.slot-valor .v-vazio { font: italic 14px/1.3 system-ui, sans-serif; color: var(--apoio); padding: 3px 0; }
-#memoria { height: auto; }
-#memoria .variavel { align-items: start; }
-#memoria .variavel code { font-size: 15px; }
-
-.terminal .v-valor { font: 16px/1.3 var(--mono); color: var(--terminal-texto); white-space: pre-wrap; overflow-wrap: anywhere; }
-.terminal .v-vazio { font: 16px/1.3 system-ui, sans-serif; color: var(--terminal-apoio); }
-
-#focos { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
-#setas { z-index: 2; }
-.foco { position: absolute; border: 2px solid var(--contorno); border-radius: 4px; box-shadow: 0 0 0 1px var(--contorno); }
-.marca { position: absolute; border: 2px dashed var(--contorno); border-radius: 5px; }
-#setas path.seta { fill: none; stroke: var(--contorno); stroke-width: 3; }
-#setas path.ponta { fill: var(--contorno); }
-.cartao-voo { white-space: pre-wrap; }
-.cartao-voo.valor-voo { font: 14px/1.3 var(--mono); }
-
-#rede svg { position: absolute; inset: 0; }
-#rede .via { fill: none; stroke: var(--borda); stroke-width: 2; stroke-dasharray: 6 5; }
-#rede .via-ponta { fill: var(--borda); }
-.via-rotulo { position: absolute; left: 0; right: 0; margin: 0; text-align: center; font-size: 15px; color: var(--apoio); }
-
-.painel h3 { margin: 8px 0 3px; font: 600 13px system-ui, sans-serif; color: var(--apoio); }
-.painel h2 + h3 { margin-top: 2px; }
-.registro { font: 14px/1.3 var(--mono); padding: 1px 0; }
-.registro span { padding: 0 3px; }
-.aviso-servidor .v-valor { font: 600 14px system-ui, sans-serif; border: 0; background: none; padding: 2px 0; }
-</style>
-<style>
-/* Tamanhos pelo piso de letra dos slides: no slide, 1 px do palco vale 0,75 pt. Valor, narração e
-   status em 27 px (20,25 pt); rótulo (nome de painel, de trecho do mapa) em 22 px (16,5 pt).
-   Layout: o pedido na faixa de cima, com o servidor à direita; embaixo, à esquerda, a resposta com o
-   mapa (um traço por linha) e, à direita, onde está o número e o que o programa procura e acha. */
-#cabeca { display: none; }
-.painel h2 { margin: 0 0 4px; font: 600 22px/28px system-ui, sans-serif; color: var(--apoio); }
-.slot-valor .v-vazio { min-height: 0; padding: 0; }
-
-#painel-pedido { left: 12px; top: 8px; width: 1256px; height: 64px; display: flex; align-items: center; gap: 18px; }
-#painel-pedido h2 { margin: 0; }
-#painel-pedido [data-slot="pedido"] { flex: 1; }
-#painel-pedido .slot-valor .v-valor, #painel-resposta [data-slot="status"] .v-valor { border: 0; background: none; padding: 0; font: 27px/34px var(--mono); white-space: pre; }
-#servidor { border: 3px solid var(--borda); border-radius: 6px; padding: 2px 14px; font: 700 22px/30px system-ui, sans-serif; background: var(--fundo); white-space: nowrap; }
-
-#painel-resposta { left: 12px; top: 80px; width: 500px; height: 548px; }
-#painel-resposta [data-slot="tamanho"] .v-valor { border: 0; background: none; padding: 0; font: 22px/28px system-ui, sans-serif; color: var(--apoio); }
-/* O mapa: um traço por linha da resposta, na altura PX_POR_LINHA e com o comprimento da linha. */
-.mapa { position: relative; margin-top: 10px; }
-.mapa .traco { position: absolute; left: 0; height: 1.5px; background: #3d3d3d; }
-.mapa .faixa { position: absolute; left: -4px; width: 192px; }
-.mapa .chave { position: absolute; left: 196px; width: 10px; border: 3px solid var(--borda); border-right: 0; }
-.mapa .rotulo-trecho { position: absolute; left: 214px; margin: 0; font: 22px/28px system-ui, sans-serif; color: var(--texto); white-space: nowrap; }
-.mapa .fantasma { position: absolute; left: -4px; top: 0; width: 192px; border: 2px dashed var(--borda); border-radius: 3px; }
-
-#painel-numero { left: 524px; top: 80px; width: 744px; height: 548px; }
-#painel-numero [data-slot="onde"] .v-valor { border: 0; background: none; padding: 0; font: 600 22px/28px system-ui, sans-serif; color: var(--apoio); }
-#painel-numero [data-slot="trecho"] .v-valor { font: 27px/34px var(--mono); white-space: pre; padding: 4px 6px; }
-#painel-numero .programa { margin-top: 26px; }
-#painel-numero .programa h2 { margin-top: 14px; }
-#painel-numero .programa .v-valor { font: 27px/34px var(--mono); white-space: pre; width: max-content; }
-
-#narracao { left: 12px; right: 12px; top: 636px; height: 80px; }
-#narracao .fala { padding: 6px 18px; font-size: 27px; line-height: 1.25; }
-.cartao-voo.valor-voo { font: 27px/32px var(--mono); }
+/* Tema da aula 20 de CDAD-1: a página vale como está, sem ajuste de layout. */
 </style>
 <script>/*!
  * GSAP 3.15.0
@@ -240,18 +169,6 @@ html.recortado body { position: relative; overflow: clip; }
 
 </script>
 <script>/*!
- * DrawSVGPlugin 3.15.0
- * https://gsap.com
- * 
- * @license Copyright 2026, GreenSock. All rights reserved.
- * Subject to the terms at https://gsap.com/standard-license.
- * @author: Jack Doyle, jack@greensock.com
- */
-
-!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?t(exports):"function"==typeof define&&define.amd?define(["exports"],t):t((e=e||self).window=e.window||{})}(this,function(e){"use strict";function l(){return"undefined"!=typeof window}function m(){return t||l()&&(t=window.gsap)&&t.registerPlugin&&t}function p(e){return Math.round(1e4*e)/1e4}function q(e){return parseFloat(e)||0}function r(e,t){var r=q(e);return~e.indexOf("%")?r/100*t:r}function s(e,t){return q(e.getAttribute(t))}function u(e,t,r,n,s,i){return D(Math.pow((q(r)-q(e))*s,2)+Math.pow((q(n)-q(t))*i,2))}function v(e){return console.warn(e)}function w(e){return"non-scaling-stroke"===e.getAttribute("vector-effect")}function z(e){if(!(e=k(e)[0]))return 0;var t,r,n,i,o,a,f,h=e.tagName.toLowerCase(),l=e.style,d=1,c=1;w(e)&&(c=e.getScreenCTM(),d=D(c.a*c.a+c.b*c.b),c=D(c.d*c.d+c.c*c.c));try{r=e.getBBox()}catch(e){v("Some browsers won't measure invisible elements (like display:none or masks inside defs).")}var g=r||{x:0,y:0,width:0,height:0},_=g.x,y=g.y,x=g.width,m=g.height;if(r&&(x||m)||!M[h]||(x=s(e,M[h][0]),m=s(e,M[h][1]),"rect"!==h&&"line"!==h&&(x*=2,m*=2),"line"===h&&(_=s(e,"x1"),y=s(e,"y1"),x=Math.abs(x-_),m=Math.abs(m-y))),"path"===h)i=l.strokeDasharray,l.strokeDasharray="none",t=e.getTotalLength()||0,p(d)!==p(c)&&!b&&(b=1)&&v("Warning: <path> length cannot be measured when vector-effect is non-scaling-stroke and the element isn't proportionally scaled."),t*=(d+c)/2,l.strokeDasharray=i;else if("rect"===h)t=2*x*d+2*m*c;else if("line"===h)t=u(_,y,_+x,y+m,d,c);else if("polyline"===h||"polygon"===h)for(n=e.getAttribute("points").match(P)||[],"polygon"===h&&n.push(n[0],n[1]),t=0,o=2;o<n.length;o+=2)t+=u(n[o-2],n[o-1],n[o],n[o+1],d,c)||0;else"circle"!==h&&"ellipse"!==h||(a=x/2*d,f=m/2*c,t=Math.PI*(3*(a+f)-D((3*a+f)*(a+3*f))));return t||0}function A(e,t){if(!(e=k(e)[0]))return[0,0];t=t||z(e)+1;var r=f.getComputedStyle(e),n=r.strokeDasharray||"",s=q(r.strokeDashoffset),i=n.indexOf(",");return i<0&&(i=n.indexOf(" ")),t<(n=i<0?t:q(n.substr(0,i)))&&(n=t),[-s||0,n-s||0]}function B(){l()&&(f=window,d=t=m(),k=t.utils.toArray,c=t.core.getStyleSaver,g=t.core.reverting||function(){},h=-1!==((f.navigator||{}).userAgent||"").indexOf("Edge"))}var t,k,f,h,d,b,c,g,P=/[-+=\.]*\d+[\.e\-\+]*\d*[e\-\+]*\d*/gi,M={rect:["width","height"],circle:["r","r"],ellipse:["rx","ry"],line:["x2","y2"]},D=Math.sqrt,n={version:"3.15.0",name:"drawSVG",register:function register(e){t=e,B()},init:function init(e,t,n){if(!e.getBBox)return!1;d||B();var s,i,o,a=z(e);return this.styles=c&&c(e,"strokeDashoffset,strokeDasharray,strokeMiterlimit"),this.tween=n,this._style=e.style,this._target=e,t+""=="true"?t="0 100%":t?-1===(t+"").indexOf(" ")&&(t="0 "+t):t="0 0",i=function _parse(e,t,n){var s,i,o=e.indexOf(" ");return i=o<0?(s=void 0!==n?n+"":e,e):(s=e.substr(0,o),e.substr(o+1)),s=r(s,t),(i=r(i,t))<s?[i,s]:[s,i]}(t,a,(s=A(e,a))[0]),this._length=p(a),this._dash=p(s[1]-s[0]),this._offset=p(-s[0]),this._dashPT=this.add(this,"_dash",this._dash,p(i[1]-i[0]),0,0,0,0,0,1),this._offsetPT=this.add(this,"_offset",this._offset,p(-i[0]),0,0,0,0,0,1),h&&(o=f.getComputedStyle(e)).strokeLinecap!==o.strokeLinejoin&&(i=q(o.strokeMiterlimit),this.add(e.style,"strokeMiterlimit",i,i+.01)),this._live=w(e)||~(t+"").indexOf("live"),this._nowrap=~(t+"").indexOf("nowrap"),this._props.push("drawSVG"),1},render:function render(e,t){if(t.tween._time||!g()){var r,n,s,i,o=t._pt,a=t._style;if(o){for(t._live&&(r=z(t._target))!==t._length&&(n=r/t._length,t._length=r,t._offsetPT&&(t._offsetPT.s*=n,t._offsetPT.c*=n),t._dashPT?(t._dashPT.s*=n,t._dashPT.c*=n):t._dash*=n);o;)o.r(e,o.d),o=o._next;s=t._dash||e&&1!==e&&1e-4||0,r=t._length-s+.1,i=t._offset,s&&i&&s+Math.abs(i%t._length)>t._length-.05&&(i+=i<0?.005:-.005)&&(r+=.005),a.strokeDashoffset=s?i:i+.001,a.strokeDasharray=r<.1?"none":s?s+"px,"+(t._nowrap?999999:r)+"px":"0px, 999999px"}}else t.styles.revert()},getLength:z,getPosition:A};m()&&t.registerPlugin(n),e.DrawSVGPlugin=n,e.default=n;if (typeof(window)==="undefined"||window!==e){Object.defineProperty(e,"__esModule",{value:!0})} else {delete e.default}});
-
-</script>
-<script>/*!
  * CustomEase 3.15.0
  * https://gsap.com
  * 
@@ -266,200 +183,239 @@ html.recortado body { position: relative; overflow: clip; }
 </head>
 <body>
 <div id="moldura"><div id="palco">
-  <header id="cabeca"><h1 id="titulo"></h1><p id="tipo"></p></header>
-  <div id="codigo" hidden></div><div id="memoria" hidden></div>
-
-  <section class="painel" id="painel-pedido" data-grupo="pedido" aria-label="O pedido">
-    <h2>o pedido</h2>
-    <div class="slot-valor" data-slot="pedido" data-vazio=""></div>
-    <p id="servidor" data-alvo="servidor">o servidor</p>
-  </section>
-
-  <section class="painel" id="painel-resposta" data-grupo="resposta" aria-label="A resposta e o mapa das linhas dela">
-    <h2>a resposta</h2>
-    <div class="slot-valor" data-slot="status" data-vazio=""></div>
-    <div class="slot-valor" data-slot="tamanho" data-vazio=""></div>
-    <div class="mapa" id="mapa"></div>
-  </section>
-
-  <section class="painel" id="painel-numero" data-grupo="numero" aria-label="Onde está o número">
-    <div class="slot-valor" data-slot="onde" data-vazio=""></div>
-    <div class="slot-valor" data-slot="trecho" data-vazio=""></div>
-    <div class="programa" data-grupo="programa">
-      <h2>o programa procura</h2>
-      <div class="slot-valor" data-slot="procura" data-vazio=""></div>
-      <h2>e acha</h2>
-      <div class="slot-valor" data-slot="acha" data-vazio=""></div>
-    </div>
-  </section>
-
+  <div id="cabeca"><h1 id="titulo">Chamar um modelo por API</h1><p id="tipo"></p></div>
+  <div class="painel" id="painel-codigo"><h2 id="cabecalho-codigo">Python completo · ▶ marca a linha deste passo</h2><div id="codigo"><div id="marcador-linha" aria-hidden="true"></div></div></div>
+  <div id="cena"></div>
   <div id="narracao" aria-live="polite"></div>
-  <div id="focos" aria-hidden="true"></div>
-  <div id="setas" aria-hidden="true"></div>
   <div id="voos" aria-hidden="true"></div>
 </div></div>
 <div id="controles"></div>
 <script type="module">// ---- ./estados.js ----
-// Aula 19: raspar a página ou pedir os dados, como conceito e não como código. O mesmo processo, pedido
-// ao servidor do Tribunal Fictício por dois caminhos:
-// - #html: a consulta de julgados volta com a página inteira. À esquerda, um mapa da página, um traço
-//   por linha, do comprimento da linha; os rótulos dizem o que é desenho (cabeçalho, estilo, topo,
-//   paginação e rodapé) e o que são resultados. À direita, a etiqueta em que está o número, o que o
-//   programa precisa achar e o que ele acha; no último passo, o site troca o nome da etiqueta e o
-//   programa deixa de achar.
-// - #json: a API volta só com o processo. O mapa, na mesma escala, é curto e só tem dados; o número
-//   está numa chave, que o programa lê pelo nome.
-// A turma não aprende BeautifulSoup nesta aula: a tela mostra o que se procura e o que se acha, nunca o
-// código da procura.
+// Aula 20 de CDAD-1: chamar um modelo de linguagem por API com LangChain. O miolo (código, pedido,
+// resposta, estados e narração) vem de cena.js, parametrizado pelo nome do modelo; este tema só
+// escolhe o modelo e a pasta da aula. O modelo é o openai/gpt-oss-120b desde 15/10/2026, o padrão do
+// dataframeit; até ali era o llama-3.1-8b-instant.
+// ---- ./cena.js ----
+// Miolo da animação da chamada a um modelo por API com LangChain, que serve a mais de uma aula. A
+// chave vem do ambiente, as mensagens montam o pedido, o pedido vai ao provedor e a resposta volta
+// com texto e tokens. No segundo cenário, a chave escrita no código vai junto com o arquivo para o
+// repositório público, e apagar a linha depois não a tira do histórico.
 //
-// Os valores são os que o servidor responde (a fonte dele fica na pasta tribunal-ficticio do
-// oferecimento; o caminho exato não vai no comentário, porque este texto é embutido no HTML que o site
-// de slides publica). A suíte test-animacao-raspar-ou-api.py sobe o servidor numa porta local, faz os
-// dois pedidos com requests e confere: status, tipo e tamanho de cada resposta; o comprimento de cada
-// linha do mapa; as linhas de cada trecho do mapa (o estilo vai do <style> ao </style>, cada resultado
-// é um tr.fundocinza1, e assim por diante); a linha e o texto da etiqueta do número; a chave do JSON; o
-// que se acha nos dois caminhos; e que, com o nome da etiqueta trocado na página recebida, a procura
-// pelo nome antigo não acha nada e o número continua lá.
+// O parâmetro é o nome do modelo, que aparece no código, no pedido, na resposta e no painel de
+// variáveis. Cada tema declara o próprio `animacao` e `destino` e reexporta o que a fábrica
+// devolve; a página é uma só (src/api-llm/pagina.html), e os outros temas a usam por link simbólico.
+// test-animacao-api-llm.py roda o código de cada tema com o ChatGroq de verdade sobre um
+// transporte HTTP simulado: confere que o pedido mostrado é o corpo que a biblioteca envia e que a
+// resposta mostrada, lida pela biblioteca, dá o texto e a contagem que o terminal imprime.
+//
+// A montagem concatena os módulos num escopo só: aqui, o único nome de nível de cima é a fábrica.
 
-const animacao = "raspar-ou-api";
-const destino = "aula19/animacao-raspar-ou-api.html";
-const cenarios = [{id: "html", rotulo: "pela página"}, {id: "json", rotulo: "pela API"}];
-const titulo = (id) => id === "html" ? "O mesmo processo, pela página" : "O mesmo processo, pela API";
-const tipo = (id) => id === "html" ? "a página inteira, e o número numa etiqueta no meio dela" : "só os dados, e o número numa chave";
-const codigo = () => [];
-const memoria = () => [];
+function criarCenaApiLlm(NOME_DO_MODELO) {
+  const cenarios = [{id: "ambiente", rotulo: "chave no ambiente"}, {id: "codigo", rotulo: "chave no código"}];
 
-const PROCESSO = "0000101-95.2026.8.99.0001";
-const PESQUISA = "dano moral";
-// O caminho de cada pedido, como o requests o manda (params= codifica o espaço como +).
-const PEDIDOS = {
-  html: "/cjpg/pesquisar?conteudoPesquisa=dano+moral",
-  json: `/api/processo?numero=${PROCESSO}`,
-};
-// Status, tipo do conteúdo e tamanho de resposta.text de cada pedido.
-const RESPOSTAS = {
-  html: {status: "200 OK", tipo: "text/html", caracteres: 15261},
-  json: {status: "200 OK", tipo: "application/json", caracteres: 886},
-};
-// Comprimento, em caracteres, de cada linha de resposta.text (sem a quebra do fim): é o mapa.
-const LINHAS = {
-  html: [15, 19, 6, 22, 68, 38, 55, 14, 19, 19, 19, 19, 19, 19, 1, 29, 104, 87, 66, 44, 43, 26, 68, 108, 94, 49, 98, 27, 33, 1, 65, 90, 47, 32, 54, 5, 22, 17, 21, 19, 58, 1, 81, 88, 104, 8, 7, 6, 55, 6, 46, 181, 89, 35, 24, 80, 69, 194, 94, 97, 86, 80, 85, 81, 98, 238, 13, 5, 24, 80, 69, 196, 108, 97, 86, 80, 85, 98, 98, 239, 13, 5, 24, 80, 69, 194, 94, 97, 85, 83, 88, 81, 98, 211, 13, 5, 24, 80, 69, 196, 108, 100, 87, 83, 88, 98, 98, 213, 13, 5, 24, 80, 69, 196, 108, 97, 86, 81, 86, 90, 98, 228, 13, 5, 24, 80, 69, 194, 94, 80, 86, 81, 86, 78, 98, 235, 13, 5, 24, 80, 69, 194, 94, 92, 85, 80, 85, 81, 98, 238, 13, 5, 24, 80, 69, 196, 108, 97, 85, 83, 88, 98, 98, 219, 13, 5, 24, 80, 69, 194, 94, 97, 86, 81, 86, 78, 98, 200, 13, 5, 24, 81, 69, 196, 108, 97, 86, 80, 85, 98, 98, 207, 13, 5, 14, 105, 7, 112, 7, 7],
-  json: [1, 46, 22, 43, 15, 38, 13, 16, 38, 4, 15, 5, 21, 42, 5, 4, 20, 18, 51, 4, 17, 5, 19, 29, 44, 6, 5, 19, 24, 44, 6, 5, 19, 26, 44, 6, 5, 19, 27, 44, 5, 3, 1],
-};
-// Os trechos do mapa da página, com a primeira e a última linha (contadas a partir de 1) e o que são.
-// `tipo` separa o desenho dos resultados; a suíte confere cada faixa na página recebida.
-const TRECHOS = {
-  html: [
-    {id: "cabecalho", rotulo: "cabeçalho", de: 1, ate: 7, tipo: "desenho"},
-    {id: "estilo", rotulo: "estilo: 39 linhas", de: 8, ate: 46, tipo: "desenho"},
-    {id: "topo", rotulo: "topo e busca", de: 47, ate: 54, tipo: "desenho"},
-    {id: "resultado-1", rotulo: "resultado 1", de: 55, ate: 68, tipo: "resultado"},
-    {id: "resultados", rotulo: "resultados 2 a 10", de: 69, ate: 194, tipo: "resultado"},
-    {id: "rodape", rotulo: "paginação e rodapé", de: 195, ate: 200, tipo: "desenho"},
-  ],
-  json: [
-    {id: "dados", rotulo: "só os dados do processo", de: 1, ate: 43, tipo: "dados"},
-  ],
-};
-// Onde está o número em cada resposta: a linha, as linhas que o painel da direita mostra e o que o
-// programa procura e acha. Na página, a etiqueta inteira tem 59 caracteres e não cabe numa linha do
-// painel; ela aparece em três, quebrada antes e depois do número, sem mudar nada do texto.
-const ETIQUETA = {tag: "span", classe: "fonteNegrito"};
-// `foco` é a linha do trecho que tem o número, e `realce` o pedaço dela que o contorno marca quando o
-// programa procura: a etiqueta, na página, e o nome da chave, na API.
-const NUMERO = {
-  html: {linha: 58, trecho: [`<span class="${ETIQUETA.classe}">`, PROCESSO, "</span>"], foco: 1, realce: {linha: 0, texto: `<span class="${ETIQUETA.classe}">`},
-    onde: "a etiqueta do número, dentro da linha 58", procura: `<span class="${ETIQUETA.classe}">`, acha: PROCESSO},
-  json: {linha: 4, trecho: ['  "tribunal": "TJFIC",', '  "numeroProcesso": "00001019520268990001",', '  "grau": "G1",', '  "dataAjuizamento": "20260414093000",'], foco: 1, realce: {linha: 1, texto: '"numeroProcesso"'},
-    onde: "as linhas 3 a 6 das 43", procura: 'a chave "numeroProcesso"', acha: "00001019520268990001"},
-};
-// O último passo do #html: o site troca o nome da etiqueta (fonteNegrito passa a numero) e o resto
-// da página fica igual. A suíte faz a troca na página recebida e confere que a procura pelo nome
-// antigo não acha nada e que o número continua na página.
-const TROCA = {classe: "numero", acha: "nada: nenhuma etiqueta com esse nome"};
-// A altura do mapa, em pixels por linha, igual nos dois cenários, para a página e a API se compararem.
-const PX_POR_LINHA = 2;
+  const VARIAVEL_DA_CHAVE = "GROQ_API_KEY";
+  const MASCARA = "gsk_••••";
+  // Chave fictícia: curta demais para ser uma chave válida do provedor (a suíte confere).
+  const CHAVE_ESCRITA = "gsk_4fQ9zL2mVb7Tn8Kc";
+  const INSTRUCAO = "Resuma a ementa em uma frase.";
+  const EMENTA = "Plano de saúde. Negativa de cobertura de cirurgia. Abusividade. Recurso desprovido.";
+  const ARQUIVO = "resumir.py";
 
-const metodoECaminho = (id) => `GET ${PEDIDOS[id].split("?")[0]}`;
-
-function montar(id) {
-  const estados = [];
-  let s = {linha: null, valores: {}, mostrar: [], foco: [], marcas: [], seta: null, consulta: null, voos: [], narr: ""};
-  const add = (m, dur = 3000) => {
-    s = {...s, foco: [], marcas: [], seta: null, voos: [], ...m, valores: {...s.valores, ...(m.valores || {})}};
-    estados.push(JSON.parse(JSON.stringify({...s, dur})));
+  // Corpo JSON que o provedor devolve (formato de chat completions). Texto e contagem são
+  // fictícios; a suíte valida o objeto com o tipo da biblioteca do provedor.
+  const RESPOSTA_HTTP = {
+    id: "chatcmpl-0a1b2c3d",
+    object: "chat.completion",
+    created: 1793100000,
+    model: NOME_DO_MODELO,
+    choices: [{index: 0, message: {role: "assistant", content: "O tribunal manteve a condenação do plano de saúde por negar, de forma abusiva, a cobertura de uma cirurgia."}, finish_reason: "stop", logprobs: null}],
+    usage: {prompt_tokens: 64, completion_tokens: 27, total_tokens: 91},
   };
-  const r = RESPOSTAS[id], n = NUMERO[id], trechos = TRECHOS[id];
-  const base = ["pedido"], comResposta = [...base, "resposta", "mapa-" + id];
+  // O que o pedido leva, na forma em que a biblioteca o escreve no corpo JSON.
+  const PEDIDO = {model: NOME_DO_MODELO, messages: [{role: "system", content: INSTRUCAO}, {role: "user", content: EMENTA}]};
 
-  add({mostrar: base, narr: id === "html"
-    ? `O processo ${PROCESSO}, pela consulta de julgados: a página que o navegador mostra.`
-    : `O mesmo processo, ${PROCESSO}, agora pela API: a porta que o site abre para programas.`}, 1500);
-  add({mostrar: base, valores: {pedido: `GET ${PEDIDOS[id]}`},
-    voos: [{de: {slot: "pedido"}, para: {alvo: "servidor"}, texto: metodoECaminho(id)}],
-    narr: id === "html" ? "O programa pede a consulta, com a pesquisa depois do ?." : "O programa pede o processo pelo número, depois do ?."});
-  add({mostrar: comResposta, valores: {status: `${r.status} · ${r.tipo}`, tamanho: `${LINHAS[id].length} linhas · ${r.caracteres} caracteres`},
-    voos: [{de: {alvo: "servidor"}, para: {slot: "status"}, texto: `${r.status} · ${r.tipo}`}],
-    narr: id === "html"
-      ? `Volta a página inteira, em HTML: ${LINHAS.html.length} linhas de texto. Cada traço do mapa é uma linha, do comprimento dela.`
-      : `Volta só o processo, em JSON: ${LINHAS.json.length} linhas, na mesma escala do mapa da página, que tinha ${LINHAS.html.length}.`}, 3400);
+  const q = (texto) => JSON.stringify(texto);
+  const linhasComuns = (linhaDaChave) => [
+    "import os",
+    "from langchain_groq import ChatGroq",
+    "",
+    linhaDaChave,
+    `modelo = ChatGroq(model=${q(NOME_DO_MODELO)}, api_key=chave)`,
+    "mensagens = [",
+    `    ("system", ${q(INSTRUCAO)}),`,
+    `    ("user", ${q(EMENTA)}),`,
+    "]",
+    "resposta = modelo.invoke(mensagens)",
+    "print(resposta.content)",
+    'print(resposta.usage_metadata["total_tokens"])',
+  ];
+  const LINHA_AMBIENTE = `chave = os.environ[${q(VARIAVEL_DA_CHAVE)}]`;
+  const LINHA_ESCRITA = `chave = ${q(CHAVE_ESCRITA)}`;
+  const codigo = (id) => linhasComuns(id === "ambiente" ? LINHA_AMBIENTE : LINHA_ESCRITA);
+  // A correção do segundo cenário troca só a linha 4.
+  const codigoCorrigido = () => linhasComuns(LINHA_AMBIENTE);
+  const linhasPython = (id) => id === "codigo" ? [...codigo(id), LINHA_AMBIENTE] : codigo(id);
 
-  if (id === "html") {
-    const desenho = trechos.filter((t) => t.tipo === "desenho"), resultados = trechos.filter((t) => t.tipo === "resultado");
-    add({mostrar: [...comResposta, "rotulos-desenho"], marcas: desenho.map((t) => ({alvo: "trecho-" + t.id})),
-      narr: "Boa parte é desenho: o cabeçalho, 39 linhas de estilo, o topo com a busca, a paginação e o rodapé."}, 3400);
-    add({mostrar: [...comResposta, "rotulos-desenho", "rotulos-resultado"], marcas: resultados.map((t) => ({alvo: "trecho-" + t.id})),
-      narr: "O resto são dez resultados, um por processo, cada um com 14 linhas de etiquetas."}, 3400);
-  } else {
-    add({mostrar: [...comResposta, "rotulos-dados"], marcas: trechos.map((t) => ({alvo: "trecho-" + t.id})),
-      narr: "Não há estilo, menu nem outros resultados: cada linha é um dado do processo, com o nome dele."}, 3400);
+  const texto = RESPOSTA_HTTP.choices[0].message.content, uso = RESPOSTA_HTTP.usage;
+  // Valores como o Python os mostraria (repr), para o painel de variáveis.
+  const VALORES = {
+    chaveMascarada: q(MASCARA).replace(/"/g, "'"),
+    modelo: `ChatGroq(model_name='${NOME_DO_MODELO}', …)`,
+    mensagens: "[('system', …), ('user', …)]",
+    resposta: `AIMessage(content='O tribunal…', …)`,
+  };
+
+  function montarAmbiente() {
+    const estados = [];
+    let s = {linha: null, variaveis: {}, pedido: "nenhum", resposta: false, saida: [], narr: ""};
+    const add = (m, dur = 3000) => { s = {...s, ...m}; estados.push(JSON.parse(JSON.stringify({...s, dur}))); };
+    add({narr: "Aperte espaço para tocar. Setas avançam e voltam um passo."}, 1200);
+    add({linha: 4, variaveis: {chave: VALORES.chaveMascarada}, narr: `A chave mora no ambiente do computador, fora do arquivo. os.environ a lê quando o programa roda.`});
+    add({linha: 5, variaveis: {...s.variaveis, modelo: VALORES.modelo}, narr: "ChatGroq guarda o nome do modelo e a chave. Nada saiu do computador ainda."});
+    add({linha: 9, variaveis: {...s.variaveis, mensagens: VALORES.mensagens}, narr: "Duas mensagens: a system dá a instrução, a user traz o pedido."});
+    add({linha: 10, pedido: "montado", narr: "invoke monta o pedido HTTP: a chave vai no cabeçalho, as mensagens vão no corpo."}, 3400);
+    add({linha: 10, pedido: "enviado", narr: "O pedido viaja pela internet até o provedor, que roda o modelo nos computadores dele."}, 3000);
+    add({linha: 10, resposta: true, variaveis: {...s.variaveis, resposta: VALORES.resposta}, narr: `A resposta volta com o texto e a conta: ${uso.prompt_tokens} tokens de entrada, ${uso.completion_tokens} de saída.`}, 3400);
+    add({linha: 11, saida: [texto], narr: "resposta.content é só o texto que o modelo escreveu."});
+    add({linha: 12, saida: [texto, String(uso.total_tokens)], narr: `No total, ${uso.total_tokens} tokens. É por token que o provedor mede o uso e o limite da conta gratuita.`}, 3600);
+    return estados;
   }
-  const rotulos = id === "html" ? ["rotulos-desenho", "rotulos-resultado"] : ["rotulos-dados"];
-  const comNumero = [...comResposta, ...rotulos, "numero"];
-  add({mostrar: comNumero, valores: {onde: n.onde, trecho: n.trecho.join("\n")},
-    foco: [{alvo: "linha-numero"}, {slot: "trecho", linha: n.foco, trecho: n.trecho[n.foco].trim().replace(/,$/, "")}],
-    seta: {de: {alvo: "linha-numero"}, para: {slot: "trecho", linha: 0}},
-    narr: id === "html"
-      ? `O número do primeiro processo está na linha ${n.linha}, dentro de uma etiqueta: span, com class ${ETIQUETA.classe}.`
-      : `O número está na linha ${n.linha}, numa chave: numeroProcesso. Vem só com os dígitos, sem desenho em volta.`}, 3600);
-  const comPrograma = [...comNumero, "programa"];
-  add({mostrar: comPrograma, valores: {procura: n.procura, acha: n.acha},
-    foco: [{slot: "procura"}, {slot: "trecho", linha: n.realce.linha, trecho: n.realce.texto}],
-    voos: [{de: {slot: "trecho", linha: n.foco, trecho: n.acha}, para: {slot: "acha"}, texto: n.acha, atraso: 0.4}],
-    narr: id === "html"
-      ? `Para tirar o número, o programa precisa achar essa etiqueta no meio das ${LINHAS.html.length} linhas, e pegar o que está dentro dela.`
-      : "O programa lê a chave pelo nome e tem o número. Nenhuma etiqueta para achar."}, 3600);
-  if (id === "html") {
-    add({mostrar: comPrograma, valores: {onde: "se o site trocar o nome da etiqueta", trecho: [`<span class="${TROCA.classe}">`, ...n.trecho.slice(1)].join("\n"), acha: TROCA.acha},
-      foco: [{slot: "trecho", linha: 0, trecho: `<span class="${TROCA.classe}">`}, {slot: "acha"}],
-      narr: `Se o site trocar ${ETIQUETA.classe} por outro nome, o número continua na página, mas o programa não acha mais a etiqueta.`}, 3800);
+
+  // Comandos digitados no terminal (entrada, não saída). A suíte roda os mesmos comandos num
+  // repositório temporário com um remoto local e confere que o histórico enviado guarda a chave.
+  const COMANDOS_ENVIO = [`git add ${ARQUIVO}`, 'git commit -m "primeira versão"', "git push"];
+  const COMANDOS_CORRECAO = ['git commit -am "tira a chave do código"', "git push"];
+
+  function montarCodigo() {
+    const estados = [];
+    let s = {linha: null, destaque: false, comandos: [], repositorio: [], corrigido: false, narr: ""};
+    const add = (m, dur = 3000) => { s = {...s, ...m}; estados.push(JSON.parse(JSON.stringify({...s, dur}))); };
+    add({narr: "Aperte espaço para tocar. Setas avançam e voltam um passo."}, 1200);
+    add({linha: 4, destaque: true, narr: "Aqui a chave está escrita no próprio arquivo. O programa funciona do mesmo jeito."});
+    add({comandos: COMANDOS_ENVIO, repositorio: [{mensagem: "primeira versão", chave: true}], narr: `O arquivo vai para um repositório público, e a chave vai junto com ele.`}, 3200);
+    add({narr: "Qualquer pessoa na internet lê a chave e passa a usar a sua conta. Há robôs que procuram chaves assim o dia todo."}, 3600);
+    add({linha: 4, destaque: false, corrigido: true, comandos: [...s.comandos, ...COMANDOS_CORRECAO], repositorio: [...s.repositorio, {mensagem: "tira a chave do código", chave: false}], narr: "Apagar a linha e enviar de novo não resolve: a versão anterior continua no histórico, com a chave."}, 3800);
+    add({narr: "Chave que vazou se revoga no painel do provedor e se troca por outra. No código, só os.environ."}, 3600);
+    return estados;
   }
-  return estados;
+
+  const montar = (id) => id === "ambiente" ? montarAmbiente() : montarCodigo();
+
+  return {cenarios, VARIAVEL_DA_CHAVE, MASCARA, CHAVE_ESCRITA, NOME_DO_MODELO, INSTRUCAO, EMENTA, ARQUIVO, RESPOSTA_HTTP, PEDIDO,
+    LINHA_AMBIENTE, LINHA_ESCRITA, COMANDOS_ENVIO, COMANDOS_CORRECAO, codigo, codigoCorrigido, linhasPython, montar};
 }
 
 
-// ---- ../../comum/cena.js ----
-// Cena declarativa: cada estado descreve a tela inteira, e este módulo só desenha a passagem de um
-// estado ao seguinte, sem lógica de tema. Nasceu para as animações da aula 19 (http, raspagem,
-// paginacao) e serve a qualquer tema próprio cuja tela seja painéis de texto que trocam de valor.
-//
-// Campos de um estado (montado em src/<tema>/estados.js, sem DOM):
-// - linha: a linha do código que acabou de executar (null antes de o programa rodar);
-// - valores: {slot: texto | null}; cada elemento [data-slot] mostra o texto do passo, uma linha
-//   de tela por "\n", ou o aviso data-vazio quando é null;
-// - mostrar: grupos [data-grupo] visíveis no passo (entram e saem com fade);
-// - foco: referências com contorno cheio, que desliza de um passo ao outro (item corrente);
-// - marcas: referências com contorno tracejado, que entram e saem com fade (o que foi achado);
-// - seta: {de, para, calha}, desenhada progressivamente enquanto o passo dura; com `calha` (um x do
-//   palco), ela sai pela direita do trecho, desce por essa faixa vazia e chega pela direita do alvo,
-//   para não riscar os valores que ficam entre os dois;
-// - consulta: texto do painel de consulta (expressão → valor), ou null;
-// - voos: [{de, para, texto, estilo, atraso, largura}], cartões que viajam em arco neste passo;
-//   o slot de chegada troca de valor no instante em que o cartão pousa.
-// Referência (de, para, foco, marcas): {codigo: n, trecho} para o código (sem `codigo`, a linha
-// do passo), {slot, linha, trecho} para o valor mostrado num slot, {alvo, trecho} para um elemento
-// [data-alvo] desenhado pela página.
-// ---- ./comum.js ----
+const animacao = "api-llm";
+const destino = "aula20/animacao-api-llm.html";
+const {cenarios, VARIAVEL_DA_CHAVE, MASCARA, CHAVE_ESCRITA, NOME_DO_MODELO, INSTRUCAO, EMENTA, ARQUIVO, RESPOSTA_HTTP, PEDIDO,
+  LINHA_AMBIENTE, LINHA_ESCRITA, COMANDOS_ENVIO, COMANDOS_CORRECAO, codigo, codigoCorrigido, linhasPython, montar} = criarCenaApiLlm("openai/gpt-oss-120b");
+
+
+// ---- ../../comum/python.js ----
+// Python com as cores do tema claro do Colab, as mesmas que o Typst dá ao código do deck
+// (colab-claro.tmTheme); test-cores-python.py compara as duas, programa a
+// programa. colorirPython recebe uma linha de texto cru e devolve HTML escapado; colorirLinhas
+// recebe o programa inteiro, porque uma string de três aspas atravessa linhas e a cor de uma linha
+// depende de onde a anterior terminou.
+const PY_CONTROLE = new Set(["for", "if", "elif", "else", "while", "return", "break", "continue", "import", "from", "as", "try", "except", "finally", "with", "pass", "raise"]);
+const PY_PALAVRA = new Set(["not", "and", "or", "in", "is", "def", "class", "lambda", "True", "False", "None"]);
+const PY_EMBUTIDA = new Set(["print", "len", "str", "int", "float", "bool", "type", "range", "list", "dict", "set", "tuple", "sum", "min", "max", "round", "sorted", "abs", "input", "enumerate", "zip", "isinstance"]);
+// Nome de tipo que não é chamado (anotação, `[str, int]`, `x = str`) fica sem cor, como no Typst;
+// chamado, como em `int("7")`, tem a cor de embutida.
+const PY_TIPO = new Set(["int", "str", "float", "bool", "list", "dict", "set", "tuple"]);
+const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const cor = (classe, t) => t ? `<span class="py-${classe}">${esc(t)}</span>` : "";
+const TOKEN = /(#.*$)|([rRbBuUfF]{1,2})?("""|'''|"|')|(\b\d+(?:\.\d+)?\b)|([A-Za-z_À-ɏ][\wÀ-ɏ]*)|([\s\S])/y;
+
+// Miolo de string a partir de `ini`, até as aspas de fecho ou o fim da linha. Numa f-string, o que
+// está entre chaves é código e ganha as cores de código; as chaves ficam sem cor, e `{{`/`}}` é texto.
+function miolo(linha, ini, aspas, f) {
+  let i = ini, html = "", pedaco = "";
+  const soltar = () => { html += cor("texto", pedaco); pedaco = ""; };
+  while (i < linha.length) {
+    if (linha.startsWith(aspas, i)) { soltar(); return {html: html + cor("texto", aspas), fim: i + aspas.length, fechou: true}; }
+    if (linha[i] === "\\" && i + 1 < linha.length) { pedaco += linha.slice(i, i + 2); i += 2; continue; }
+    if (f && (linha.startsWith("{{", i) || linha.startsWith("}}", i))) { pedaco += linha.slice(i, i + 2); i += 2; continue; }
+    if (f && linha[i] === "{") {
+      const fecha = linha.indexOf("}", i);
+      if (fecha > i) { soltar(); html += "{" + colorirTrecho(linha.slice(i + 1, fecha), {}).html + "}"; i = fecha + 1; continue; }
+    }
+    pedaco += linha[i]; i++;
+  }
+  soltar();
+  return {html, fim: i, fechou: false};
+}
+
+// Colore uma linha de código a partir de um estado (string aberta ou não); devolve o HTML e o estado
+// para a linha seguinte.
+function colorirTrecho(linha, estado) {
+  let html = "", i = 0, aberta = estado.aberta || null;
+  // O `in` do cabeçalho do for é controle (roxo); fora dele, `in` é operador (azul), como no Colab.
+  let inDoFor = /^\s*for\b/.test(linha), anterior = "";
+  // Entre `from` e `import`, o nome do módulo fica sem cor, como no Typst.
+  let modulo = false;
+  // Na linha de `class`, a classe-mãe entre parênteses também fica sem cor, como no Typst.
+  const linhaDeClasse = /^\s*class\b/.test(linha);
+  let parenteses = 0;
+  // `self` fica sem cor, salvo como parâmetro na linha do def, como no Typst.
+  const linhaDeDef = /^\s*def\b/.test(linha);
+  if (aberta) {
+    const m = miolo(linha, 0, aberta.aspas, aberta.f);
+    html += m.html; i = m.fim;
+    if (m.fechou) aberta = null; else return {html, aberta};
+  }
+  while (i < linha.length) {
+    TOKEN.lastIndex = i;
+    const m = TOKEN.exec(linha), t = m[0];
+    const [, comentario, prefixo, aspas, numero, nome] = m;
+    if (comentario) html += cor("comentario", t);
+    else if (aspas) {
+      // O prefixo (f, r, b) tem a cor de palavra, como o Typst dá ao `f` de f-string.
+      html += cor("palavra", prefixo || "") + cor("texto", aspas);
+      const s = miolo(linha, i + t.length, aspas, /[fF]/.test(prefixo || ""));
+      html += s.html;
+      i = s.fim; anterior = aspas;
+      if (!s.fechou && aspas.length === 3) aberta = {aspas, f: /[fF]/.test(prefixo || "")};
+      continue;
+    }
+    else if (numero) html += cor("numero", t);
+    else if (nome && ((modulo && nome !== "import") || (linhaDeClasse && parenteses > 0)
+      || (nome === "self" && !linhaDeDef)
+      || (PY_TIPO.has(nome) && anterior !== "." && !/^\s*\(/.test(linha.slice(i + t.length))))) html += esc(t);
+    else if (nome) {
+      if (nome === "from") modulo = true;
+      if (nome === "import") modulo = false;
+      if (nome === "in" && inDoFor) { inDoFor = false; html += cor("controle", t); }
+      else if (PY_CONTROLE.has(nome)) html += cor("controle", t);
+      else if (PY_PALAVRA.has(nome)) html += cor("palavra", t);
+      // Depois de ponto é método, e método tem a cor de nome (`.append`), como no Colab.
+      else if (PY_EMBUTIDA.has(nome) && anterior !== ".") html += cor("embutida", t);
+      // Método especial (`__init__`) tem a cor de embutida, como no Typst.
+      else if (/^__\w+__$/.test(nome)) html += cor("embutida", t);
+      else html += cor("nome", t);
+    } else {
+      if (t === "(") parenteses++;
+      if (t === ")") parenteses--;
+      html += esc(t);
+    }
+    if (t.trim()) anterior = t;
+    i += t.length;
+  }
+  return {html, aberta};
+}
+
+function colorirLinhas(linhas) {
+  let estado = {};
+  return linhas.map((linha) => { const r = colorirTrecho(linha, estado); estado = {aberta: r.aberta}; return r.html; });
+}
+
+function colorirPython(linha) {
+  return colorirTrecho(linha, {}).html;
+}
+
+
+// ---- ../../comum/comum.js ----
 // Peças que todas as animações compartilham: durações do roteiro, pilha de textos por passo,
 // medição no espaço do palco, voo de cartão, tocador sobre a timeline, teclas e escala do palco.
 // gsap e os plugins chegam como globais (scripts UMD), tanto no fonte quanto no dist.
@@ -718,361 +674,168 @@ function iniciar({animacao, cenarios, rotulos, preparar, espera}) {
 }
 
 
-// ---- ./python.js ----
-// Python com as cores do tema claro do Colab, as mesmas que o Typst dá ao código do deck
-// (colab-claro.tmTheme); test-cores-python.py compara as duas, programa a
-// programa. colorirPython recebe uma linha de texto cru e devolve HTML escapado; colorirLinhas
-// recebe o programa inteiro, porque uma string de três aspas atravessa linhas e a cor de uma linha
-// depende de onde a anterior terminou.
-const PY_CONTROLE = new Set(["for", "if", "elif", "else", "while", "return", "break", "continue", "import", "from", "as", "try", "except", "finally", "with", "pass", "raise"]);
-const PY_PALAVRA = new Set(["not", "and", "or", "in", "is", "def", "class", "lambda", "True", "False", "None"]);
-const PY_EMBUTIDA = new Set(["print", "len", "str", "int", "float", "bool", "type", "range", "list", "dict", "set", "tuple", "sum", "min", "max", "round", "sorted", "abs", "input", "enumerate", "zip", "isinstance"]);
-// Nome de tipo que não é chamado (anotação, `[str, int]`, `x = str`) fica sem cor, como no Typst;
-// chamado, como em `int("7")`, tem a cor de embutida.
-const PY_TIPO = new Set(["int", "str", "float", "bool", "list", "dict", "set", "tuple"]);
-const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const cor = (classe, t) => t ? `<span class="py-${classe}">${esc(t)}</span>` : "";
-const TOKEN = /(#.*$)|([rRbBuUfF]{1,2})?("""|'''|"|')|(\b\d+(?:\.\d+)?\b)|([A-Za-z_À-ɏ][\wÀ-ɏ]*)|([\s\S])/y;
+gsap.registerPlugin(MotionPathPlugin);
+const TIPOS = {ambiente: "chave lida do ambiente, pedido e resposta", codigo: "o erro: chave escrita no código"};
+const ORDEM_VARIAVEIS = ["chave", "modelo", "mensagens", "resposta"];
 
-// Miolo de string a partir de `ini`, até as aspas de fecho ou o fim da linha. Numa f-string, o que
-// está entre chaves é código e ganha as cores de código; as chaves ficam sem cor, e `{{`/`}}` é texto.
-function miolo(linha, ini, aspas, f) {
-  let i = ini, html = "", pedaco = "";
-  const soltar = () => { html += cor("texto", pedaco); pedaco = ""; };
-  while (i < linha.length) {
-    if (linha.startsWith(aspas, i)) { soltar(); return {html: html + cor("texto", aspas), fim: i + aspas.length, fechou: true}; }
-    if (linha[i] === "\\" && i + 1 < linha.length) { pedaco += linha.slice(i, i + 2); i += 2; continue; }
-    if (f && (linha.startsWith("{{", i) || linha.startsWith("}}", i))) { pedaco += linha.slice(i, i + 2); i += 2; continue; }
-    if (f && linha[i] === "{") {
-      const fecha = linha.indexOf("}", i);
-      if (fecha > i) { soltar(); html += "{" + colorirTrecho(linha.slice(i + 1, fecha), {}).html + "}"; i = fecha + 1; continue; }
-    }
-    pedaco += linha[i]; i++;
-  }
-  soltar();
-  return {html, fim: i, fechou: false};
+function painelEl(id, titulo, corpo) {
+  const el = $("cena").appendChild(criarEl("div", "painel", (titulo ? `<h2>${titulo}</h2>` : "") + corpo));
+  el.id = id;
+  return el;
 }
 
-// Colore uma linha de código a partir de um estado (string aberta ou não); devolve o HTML e o estado
-// para a linha seguinte.
-function colorirTrecho(linha, estado) {
-  let html = "", i = 0, aberta = estado.aberta || null;
-  // O `in` do cabeçalho do for é controle (roxo); fora dele, `in` é operador (azul), como no Colab.
-  let inDoFor = /^\s*for\b/.test(linha), anterior = "";
-  // Entre `from` e `import`, o nome do módulo fica sem cor, como no Typst.
-  let modulo = false;
-  // Na linha de `class`, a classe-mãe entre parênteses também fica sem cor, como no Typst.
-  const linhaDeClasse = /^\s*class\b/.test(linha);
-  let parenteses = 0;
-  // `self` fica sem cor, salvo como parâmetro na linha do def, como no Typst.
-  const linhaDeDef = /^\s*def\b/.test(linha);
-  if (aberta) {
-    const m = miolo(linha, 0, aberta.aspas, aberta.f);
-    html += m.html; i = m.fim;
-    if (m.fechou) aberta = null; else return {html, aberta};
-  }
-  while (i < linha.length) {
-    TOKEN.lastIndex = i;
-    const m = TOKEN.exec(linha), t = m[0];
-    const [, comentario, prefixo, aspas, numero, nome] = m;
-    if (comentario) html += cor("comentario", t);
-    else if (aspas) {
-      // O prefixo (f, r, b) tem a cor de palavra, como o Typst dá ao `f` de f-string.
-      html += cor("palavra", prefixo || "") + cor("texto", aspas);
-      const s = miolo(linha, i + t.length, aspas, /[fF]/.test(prefixo || ""));
-      html += s.html;
-      i = s.fim; anterior = aspas;
-      if (!s.fechou && aspas.length === 3) aberta = {aspas, f: /[fF]/.test(prefixo || "")};
-      continue;
-    }
-    else if (numero) html += cor("numero", t);
-    else if (nome && ((modulo && nome !== "import") || (linhaDeClasse && parenteses > 0)
-      || (nome === "self" && !linhaDeDef)
-      || (PY_TIPO.has(nome) && anterior !== "." && !/^\s*\(/.test(linha.slice(i + t.length))))) html += esc(t);
-    else if (nome) {
-      if (nome === "from") modulo = true;
-      if (nome === "import") modulo = false;
-      if (nome === "in" && inDoFor) { inDoFor = false; html += cor("controle", t); }
-      else if (PY_CONTROLE.has(nome)) html += cor("controle", t);
-      else if (PY_PALAVRA.has(nome)) html += cor("palavra", t);
-      // Depois de ponto é método, e método tem a cor de nome (`.append`), como no Colab.
-      else if (PY_EMBUTIDA.has(nome) && anterior !== ".") html += cor("embutida", t);
-      // Método especial (`__init__`) tem a cor de embutida, como no Typst.
-      else if (/^__\w+__$/.test(nome)) html += cor("embutida", t);
-      else html += cor("nome", t);
-    } else {
-      if (t === "(") parenteses++;
-      if (t === ")") parenteses--;
-      html += esc(t);
-    }
-    if (t.trim()) anterior = t;
-    i += t.length;
-  }
-  return {html, aberta};
+// Corpo JSON do pedido, indentado como o Python o imprimiria com json.dumps(indent=1).
+function pedidoHtml() {
+  const mensagens = PEDIDO.messages.map((m) => `  {"role": ${escapar(JSON.stringify(m.role))},\n   "content": ${escapar(JSON.stringify(m.content))}}`).join(",\n");
+  return `<span class="rotulo">cabeçalho</span>\nAuthorization: Bearer <span class="chave-http">${escapar(MASCARA)}</span>\n` +
+    `<span class="rotulo">corpo</span>\n{"model": ${escapar(JSON.stringify(PEDIDO.model))},\n "messages": [\n${mensagens}\n ]}`;
+}
+function respostaHtml() {
+  const u = RESPOSTA_HTTP.usage, texto = RESPOSTA_HTTP.choices[0].message.content;
+  // Só os campos que o programa lê, na posição em que estão no corpo; o resto do JSON fica em "…".
+  return `{"choices": [{"message": {"content":\n   ${escapar(JSON.stringify(texto))}}}],\n "usage": {"prompt_tokens": ${u.prompt_tokens},\n           "completion_tokens": ${u.completion_tokens},\n           "total_tokens": ${u.total_tokens}}, …}`;
 }
 
-function colorirLinhas(linhas) {
-  let estado = {};
-  return linhas.map((linha) => { const r = colorirTrecho(linha, estado); estado = {aberta: r.aberta}; return r.html; });
-}
+function preparar(cenario) {
+  const estados = montar(cenario);
+  const final = estados[estados.length - 1];
+  for (const id of ["cena", "narracao", "voos"]) { gsap.killTweensOf($(id).querySelectorAll("*")); $(id).innerHTML = ""; }
+  for (const el of $("codigo").querySelectorAll(".linha-codigo")) el.remove();
+  $("tipo").textContent = TIPOS[cenario];
 
-function colorirPython(linha) {
-  return colorirTrecho(linha, {}).html;
-}
+  // Código: a linha 4 do cenário "codigo" tem duas versões empilhadas, a original e a corrigida.
+  const linhas = codigo(cenario), corrigidas = codigoCorrigido();
+  const elLinhas = linhas.map((texto, k) => {
+    const el = criarEl("div", "linha-codigo", `<span class="num">${k + 1}</span><span class="texto"></span>`);
+    const alvo = el.querySelector(".texto");
+    const versoes = cenario === "codigo" && texto !== corrigidas[k] ? [texto, corrigidas[k]] : [texto];
+    const pilha = criarPilha(alvo, versoes, (v) => criarEl("span", null, colorirPython(v) || " "));
+    el.pilha = versoes.length > 1 ? pilha : null;
+    return $("codigo").appendChild(el);
+  });
+  const marcador = $("marcador-linha");
+  const topoLinha = (n) => elLinhas[n - 1].offsetTop;
+  const altLinha = (n) => elLinhas[n - 1].offsetHeight;
+  const narracao = criarNarracao($("narracao"), estados.map((s) => s.narr));
 
+  const tl = gsap.timeline({paused: true});
+  const fade = (alvo, valor, t, dur = DUR.narracao) => tl.to(alvo, {autoAlpha: valor, duration: dur, ease: "none"}, t);
+  const cartao = (classe, html, chegada) => { const c = $("voos").appendChild(criarEl("div", "cartao-voo " + classe, html)); posicionarCartao(c, chegada); return c; };
 
-const SVG = "http://www.w3.org/2000/svg";
-// Folga do contorno em volta do alvo: pouca na horizontal, porque em fonte mono o caractere vizinho
-// (o "[" antes do primeiro item de uma lista, por exemplo) começa colado ao alvo.
-const FOLGA_X = 2, FOLGA_Y = 3;
-
-function cena({animacao, cenarios, montar, codigo, titulo, tipo, memoria, desenhar}) {
-  gsap.registerPlugin(MotionPathPlugin, DrawSVGPlugin);
-
-  function preparar(id) {
-    const estados = montar(id), linhas = codigo(id);
-    for (const el of ["codigo", "memoria", "narracao", "setas", "voos", "focos", ...($("consulta") ? ["consulta"] : [])]) {
-      gsap.killTweensOf($(el).querySelectorAll("*"));
-      $(el).innerHTML = "";
+  gsap.set(marcador, {autoAlpha: 0});
+  const s0 = estados[0];
+  const marcar = (s, a, t) => {
+    if (s.linha && s.linha !== a.linha) {
+      if (!a.linha) { tl.set(marcador, {top: topoLinha(s.linha), height: altLinha(s.linha)}, t); fade(marcador, 1, t, DUR.marcador); }
+      else tl.to(marcador, {top: topoLinha(s.linha), height: altLinha(s.linha), duration: DUR.marcador, ease: CURVA}, t);
     }
-    $("titulo").textContent = titulo(id);
-    $("tipo").textContent = tipo(id);
+    if (!s.linha && a.linha) fade(marcador, 0, t, DUR.salto);
+  };
 
-    // Memória: uma linha por variável que o cenário mostra, na ordem do módulo de estados. Linha com
-    // `fora` tem o slot desenhado pela própria página, noutro painel, e fica de fora daqui.
-    for (const m of memoria(id).filter((m) => !m.fora)) {
-      $("memoria").appendChild(criarEl("div", "variavel", `<code>${escapar(m.rotulo)}</code><div class="slot-valor" data-slot="${escapar(m.slot)}"></div>`));
-    }
-    // O que é próprio do tema (servidor, página HTML) a página desenha antes das medições.
-    if (desenhar) desenhar(id, estados);
+  if (cenario === "ambiente") {
+    const amb = painelEl("painel-ambiente", "ambiente do computador · fora do arquivo", `<div id="ambiente"><span class="py-nome">${VARIAVEL_DA_CHAVE}</span> = <span class="mascara">${escapar(MASCARA)}</span></div>`);
+    const vars = painelEl("painel-variaveis", "Memória · o que o programa guardou", ORDEM_VARIAVEIS.map((n) => `<div class="variavel"><code>${n}</code><span class="valor" id="valor-${n}">${escapar(final.variaveis[n])}</span></div>`).join(""));
+    painelEl("painel-pedido", "<b>pedido</b> HTTP · POST", `<pre class="http" id="pedido-corpo">${pedidoHtml()}</pre><p class="vazio" id="pedido-vazio">ainda não montado</p>`);
+    painelEl("painel-resposta", "<b>resposta</b> · corpo JSON", `<pre class="http" id="resposta-corpo">${respostaHtml()}</pre><p class="vazio" id="resposta-vazia">ainda não chegou</p>`);
+    painelEl("provedor", "", `<h2>provedor</h2><div class="servidor" aria-hidden="true"><span></span><span></span><span></span></div><p>computadores que rodam o modelo</p><div class="estados-prov"><p id="prov-0">nenhum pedido</p><p id="prov-1">pedido chegou · o modelo roda</p><p id="prov-2">resposta devolvida</p></div>`);
+    painelEl("painel-saida", "Saída na tela · print() e mensagens de erro", `<div id="stdout"></div>`);
+    const saidas = final.saida.map((texto) => $("stdout").appendChild(criarEl("div", "saida-linha", escapar(texto))));
 
-    // Código, com o marcador por baixo das linhas.
-    const marcador = $("codigo").appendChild(criarEl("div", null));
-    marcador.id = "marcador-linha";
-    const linhasCodigo = linhas.map((texto, k) => $("codigo").appendChild(
-      criarEl("div", "linha-codigo", `<span class="num">${k + 1}</span><span class="texto">${colorirPython(texto)}</span>`)));
-    const textoDaLinha = (n) => linhasCodigo[n - 1].querySelector(".texto");
-    const posLinha = (n) => ({y: linhasCodigo[n - 1].offsetTop, height: linhasCodigo[n - 1].offsetHeight});
-
-    // Slots: uma pilha de valores por elemento [data-slot], com a altura do maior valor.
-    const pilhas = {};
-    for (const el of $("palco").querySelectorAll("[data-slot]")) {
-      const chave = el.dataset.slot, vazio = el.dataset.vazio ?? "ainda não existe";
-      el.innerHTML = "";
-      pilhas[chave] = criarPilha(el, estados.map((s) => s.valores[chave] ?? null), (v) => v === null
-        ? criarEl("div", "v-vazio", escapar(vazio))
-        : criarEl("div", "v-valor", v.split("\n").map((l) => `<div class="l">${escapar(l) || " "}</div>`).join("")));
-      el.style.height = Math.max(...pilhas[chave].elementos.map((x) => x.offsetHeight)) + "px";
-    }
-    const pilhaConsulta = $("consulta") && criarPilha($("consulta"), estados.map((s) => s.consulta ?? null),
-      (texto) => texto ? criarEl("div", null, escapar(texto)) : criarEl("div", "ausente", "Nenhuma consulta neste passo."));
-    const narracao = criarNarracao($("narracao"), estados.map((s) => s.narr));
-
-    // Referência → caixa no palco, medida com o layout final.
-    function elementoDe(ref, i) {
-      if (ref.slot !== undefined) {
-        let el = pilhas[ref.slot].noPasso(i);
-        if (ref.linha !== undefined) { const ls = el.querySelectorAll(".l"); el = ls[ref.linha < 0 ? ls.length + ref.linha : ref.linha]; }
-        return el;
-      }
-      if (ref.alvo !== undefined) return $("palco").querySelector(`[data-alvo="${ref.alvo}"]`);
-      return textoDaLinha(ref.codigo ?? estados[i].linha);
-    }
-    function caixaDe(ref, i) {
-      const el = elementoDe(ref, i);
-      if (!el) { console.error(`${animacao}/${id}: referência sem elemento no passo ${i}: ${JSON.stringify(ref)}`); return {x: 0, y: 0, w: 0, h: 0}; }
-      const b = ref.trecho ? caixaTrecho(el, ref.trecho) : caixa(el);
-      if (!b) { console.error(`${animacao}/${id}: trecho não achado no passo ${i}: ${JSON.stringify(ref)}`); return caixa(el); }
-      return b;
-    }
-    const contorno = (b) => ({left: b.x - FOLGA_X, top: b.y - FOLGA_Y, width: b.w + 2 * FOLGA_X, height: b.h + 2 * FOLGA_Y});
-
-    // Contornos: um elemento por posição da lista de foco (cheio) e de marcas (tracejado).
-    const criarContornos = (campo, classe) => Array.from({length: Math.max(0, ...estados.map((s) => (s[campo] || []).length))},
-      () => $("focos").appendChild(criarEl("div", classe)));
-    const focos = criarContornos("foco", "foco"), marcas = criarContornos("marcas", "marca");
-    const posicoes = (campo) => estados.map((s, i) => (s[campo] || []).map((ref) => contorno(caixaDe(ref, i))));
-    const posFoco = posicoes("foco"), posMarca = posicoes("marcas");
-
-    // Setas e cartões de cada passo.
-    const svg = $("setas").appendChild(document.createElementNS(SVG, "svg"));
-    svg.setAttribute("viewBox", "0 0 1280 720");
-    const passos = estados.map((s, i) => {
-      const p = {voos: []};
-      if (s.seta) {
-        const a = caixaDe(s.seta.de, i), b = caixaDe(s.seta.para, i);
-        p.trecho = $("setas").appendChild(criarEl("div", "trecho"));
-        // A caixa desce 5 px abaixo do trecho: o sublinhado da fonte mono fica rente ao fim da linha, e
-        // uma borda mais justa o esconderia (class_ viraria "class ").
-        Object.assign(p.trecho.style, {left: a.x - 3 + "px", top: a.y - 3 + "px", width: a.w + 6 + "px", height: a.h + 8 + "px"});
-        const {d, ponta} = s.seta.calha === undefined ? caminhoDaSeta(a, b) : caminhoPelaCalha(a, b, s.seta.calha);
-        p.seta = svg.appendChild(document.createElementNS(SVG, "path"));
-        p.seta.setAttribute("d", d);
-        p.seta.setAttribute("class", "seta");
-        p.ponta = svg.appendChild(document.createElementNS(SVG, "path"));
-        p.ponta.setAttribute("d", ponta);
-        p.ponta.setAttribute("class", "ponta");
-      }
-      if (i === 0) return p;
-      for (const v of s.voos || []) {
-        const origem = caixaDe(v.de, i), destino = caixaDe(v.para, i);
-        const cartao = $("voos").appendChild(criarEl("div", "cartao-voo " + (v.estilo === "terminal" ? "terminal-voo" : "valor-voo"), escapar(v.texto)));
-        const chegada = {x: destino.x - 6, y: destino.y - 3};
-        if (v.largura === "destino") chegada.w = destino.w + 12;
-        posicionarCartao(cartao, chegada);
-        p.voos.push({cartao, origem: {x: origem.x - 6, y: origem.y - 3}, chegada, atraso: v.atraso || 0, slot: v.para.slot});
-      }
-      return p;
+    // Posições medidas com tudo no lugar final.
+    const valores = Object.fromEntries(ORDEM_VARIAVEIS.map((n) => [n, $("valor-" + n)]));
+    const origemVar = {chave: caixa(amb.querySelector(".mascara")), modelo: caixa(elLinhas[4]), mensagens: caixa(elLinhas[5]), resposta: caixa($("resposta-corpo"))};
+    const voosVar = Object.fromEntries(ORDEM_VARIAVEIS.map((n) => {
+      const b = caixa(valores[n]);
+      return [n, {cartao: cartao("", escapar(final.variaveis[n]), {x: b.x, y: b.y}), origem: {x: origemVar[n].x, y: origemVar[n].y}, chegada: {x: b.x, y: b.y}}];
+    }));
+    const bPedido = caixa($("painel-pedido")), bProv = caixa($("provedor")), bResp = caixa($("painel-resposta"));
+    const vooIda = {cartao: cartao("pedido-voo", "pedido", {x: bProv.x + 30, y: bProv.y + 60}), origem: {x: bPedido.x + 150, y: bPedido.y + 100}, chegada: {x: bProv.x + 30, y: bProv.y + 60}};
+    const vooVolta = {cartao: cartao("pedido-voo", "resposta", {x: bResp.x + 140, y: bResp.y + 50}), origem: {x: bProv.x + 30, y: bProv.y + 250}, chegada: {x: bResp.x + 140, y: bResp.y + 50}};
+    const voosSaida = saidas.map((el, k) => {
+      const b = caixa(el), o = caixa(elLinhas[10 + k].querySelector(".texto"));
+      return {cartao: cartao("terminal-voo", escapar(final.saida[k]), {x: b.x, y: b.y, w: b.w}), origem: {x: o.x, y: o.y}, chegada: {x: b.x, y: b.y}};
     });
 
-    // Passo 0.
-    const s0 = estados[0];
-    const grupos = [...$("palco").querySelectorAll("[data-grupo]")];
-    const visivel = (s, g) => (s.mostrar || []).includes(g.dataset.grupo);
-    gsap.set(grupos, {autoAlpha: 0});
-    gsap.set(grupos.filter((g) => visivel(s0, g)), {autoAlpha: 1});
-    gsap.set([marcador, ...focos, ...marcas], {autoAlpha: 0});
-    if (s0.linha) gsap.set(marcador, {...posLinha(s0.linha), autoAlpha: 1});
-    posFoco[0].forEach((pos, k) => gsap.set(focos[k], {...pos, autoAlpha: 1}));
-    posMarca[0].forEach((pos, k) => gsap.set(marcas[k], {...pos, autoAlpha: 1}));
-    for (const p of passos) if (p.seta) { gsap.set([p.trecho, p.ponta], {autoAlpha: 0}); gsap.set(p.seta, {drawSVG: "0%"}); }
-
-    const tl = gsap.timeline({paused: true});
-    // fromTo com o ponto de partida explícito: um `to` gravaria o valor de partida no primeiro
-    // render, e depois de um seek esse valor pode ser o de outro passo.
-    const fade = (alvo, de, para, t, dur = DUR.narracao) => tl.fromTo(alvo, {autoAlpha: de}, {autoAlpha: para, duration: dur, ease: "none", immediateRender: false}, t);
+    gsap.set([...Object.values(valores), ...saidas, "#pedido-corpo", "#resposta-corpo", "#prov-1", "#prov-2"], {autoAlpha: 0});
     tl.addLabel("p0", 0);
     estados.forEach((s, i) => {
       if (i === 0) return;
-      const a = estados[i - 1], t = tl.duration() + 0.001, p = passos[i], anterior = passos[i - 1];
+      const a = estados[i - 1], t = tl.duration() + 0.001;
       tl.to({}, {duration: 0.4}, t);
-
-      if (!s.linha && a.linha) fade(marcador, 1, 0, t);
-      else if (s.linha && !a.linha) { tl.set(marcador, posLinha(s.linha), t); fade(marcador, 0, 1, t); }
-      else if (s.linha !== a.linha) tl.fromTo(marcador, posLinha(a.linha), {...posLinha(s.linha), duration: DUR.marcador, ease: CURVA, immediateRender: false}, t);
-
       narracao.transicao(tl, i, t);
-      if (pilhaConsulta) pilhaConsulta.transicao(tl, i, t);
-      for (const g of grupos) if (visivel(a, g) !== visivel(s, g)) fade(g, visivel(a, g) ? 1 : 0, visivel(s, g) ? 1 : 0, t);
-
-      if (anterior.seta) { fade([anterior.trecho, anterior.ponta], 1, 0, t); tl.fromTo(anterior.seta, {drawSVG: "100%", autoAlpha: 1}, {autoAlpha: 0, duration: DUR.narracao, ease: "none", immediateRender: false}, t); }
-      if (p.seta) {
-        fade(p.trecho, 0, 1, t);
-        tl.fromTo(p.seta, {drawSVG: "0%", autoAlpha: 1}, {drawSVG: "100%", duration: DUR.seta, ease: CURVA, immediateRender: false}, t);
-        fade(p.ponta, 0, 1, t + DUR.seta - 0.1, 0.1);
+      marcar(s, a, t);
+      for (const n of ORDEM_VARIAVEIS) {
+        if (s.variaveis[n] && !a.variaveis[n]) {
+          const v = voosVar[n], atraso = n === "resposta" ? DUR.voo : 0;
+          tl.set(valores[n], {autoAlpha: 1}, voar(tl, v.cartao, v.origem, v.chegada, t + atraso));
+        }
       }
-
-      focos.forEach((el, k) => {
-        const antes = posFoco[i - 1][k], agora = posFoco[i][k];
-        if (antes && agora) tl.fromTo(el, {...antes}, {...agora, duration: DUR.marcador, ease: CURVA, immediateRender: false}, t);
-        else if (agora) { tl.set(el, {...agora}, t); fade(el, 0, 1, t, DUR.marcador); }
-        else if (antes) fade(el, 1, 0, t, DUR.marcador);
-      });
-      marcas.forEach((el, k) => {
-        const antes = posMarca[i - 1][k], agora = posMarca[i][k];
-        // Comparação por texto das posições (GSAP guarda coisas no objeto de vars, por isso as cópias).
-        if (agora && (!antes || JSON.stringify(antes) !== JSON.stringify(agora))) { tl.set(el, {...agora}, t); fade(el, 0, 1, t); }
-        else if (antes && !agora) fade(el, 1, 0, t);
-      });
-
-      // Slot que recebe um cartão troca de valor quando o último cartão pousa; slot de onde sai
-      // um cartão atrasado mostra o valor novo antes de o cartão sair; os outros trocam com fade.
-      const pouso = {}, saida = {};
-      for (const v of p.voos) {
-        const chegou = voar(tl, v.cartao, v.origem, v.chegada, t + v.atraso);
-        if (v.slot !== undefined) pouso[v.slot] = Math.max(pouso[v.slot] ?? 0, chegou);
+      if (s.pedido === "montado" && a.pedido === "nenhum") {
+        fade("#pedido-vazio", 0, t, DUR.salto);
+        tl.fromTo("#pedido-corpo", {autoAlpha: 0, y: 16}, {autoAlpha: 1, y: 0, duration: 0.45, ease: CURVA, immediateRender: false}, t);
       }
-      for (const v of s.voos || []) if (v.de.slot !== undefined && v.atraso) saida[v.de.slot] = Math.min(saida[v.de.slot] ?? Infinity, t + v.atraso - DUR.narracao);
-      for (const [chave, pilha] of Object.entries(pilhas)) {
-        if (!pilha.mudou(i)) continue;
-        if (pouso[chave] !== undefined) pilha.transicao(tl, i, t, pouso[chave]);
-        else pilha.transicao(tl, i, Math.max(t, saida[chave] ?? t));
+      if (s.pedido === "enviado" && a.pedido === "montado") {
+        const chegou = voar(tl, vooIda.cartao, vooIda.origem, vooIda.chegada, t);
+        fade("#prov-0", 0, chegou, DUR.salto);
+        fade("#prov-1", 1, chegou, DUR.narracao);
+      }
+      if (s.resposta && !a.resposta) {
+        const chegou = voar(tl, vooVolta.cartao, vooVolta.origem, vooVolta.chegada, t);
+        fade("#prov-1", 0, t, DUR.salto);
+        fade("#prov-2", 1, t, DUR.narracao);
+        fade("#resposta-vazia", 0, chegou, DUR.salto);
+        fade("#resposta-corpo", 1, chegou, DUR.narracao);
+      }
+      for (let k = a.saida.length; k < s.saida.length; k++) {
+        const v = voosSaida[k];
+        tl.set(saidas[k], {autoAlpha: 1}, voar(tl, v.cartao, v.origem, v.chegada, t));
       }
       tl.addLabel("p" + i, tl.duration());
     });
-    return {estados, tl};
-  }
-
-  iniciar({animacao, cenarios: cenarios.map((c) => c.id), rotulos: cenarios.map((c) => c.rotulo), preparar, espera: (s) => s.dur});
-}
-
-// Caminho da seta de a (o trecho do código) até b (o campo consultado): sai pelo lado de a que
-// fica voltado para b e chega pela borda de b, com a ponta na direção da chegada.
-function caminhoDaSeta(a, b) {
-  let x1, y1, x2, y2, c1, c2;
-  if (b.x > a.x + a.w + 20) {
-    // Sai pelo canto de cima da caixa, acima do resto da linha (um .text depois do find, por exemplo).
-    x1 = a.x + a.w + 3; y1 = a.y - 1; x2 = b.x - 6; y2 = b.y + b.h / 2;
-    const m = (x2 - x1) / 2; c1 = [x1 + m, y1]; c2 = [x2 - m, y2];
-  } else if (b.x + b.w < a.x - 20) {
-    x1 = a.x - 3; y1 = a.y + a.h / 2; x2 = b.x + b.w + 6; y2 = b.y + b.h / 2;
-    const m = (x1 - x2) / 2; c1 = [x1 - m, y1]; c2 = [x2 + m, y2];
-  } else if (b.y > a.y + a.h) {
-    x1 = a.x + Math.min(a.w / 2, 80); y1 = a.y + a.h + 3; x2 = b.x + Math.min(b.w / 2, 60); y2 = b.y - 6;
-    const m = (y2 - y1) / 2; c1 = [x1, y1 + m]; c2 = [x2, y2 - m];
   } else {
-    x1 = a.x + Math.min(a.w / 2, 80); y1 = a.y - 3; x2 = b.x + Math.min(b.w / 2, 60); y2 = b.y + b.h + 6;
-    const m = (y1 - y2) / 2; c1 = [x1, y1 - m]; c2 = [x2, y2 + m];
+    painelEl("painel-repositorio", "<b>repositório público</b> · qualquer pessoa na internet lê", final.repositorio.map((c, k) =>
+      `<div class="commit ${c.chave ? "com-chave" : "sem-chave"}" id="commit-${k}"><h3>versão ${k + 1} <small>· "${escapar(c.mensagem)}"</small></h3>` +
+      `<pre>${colorirPython(`# ${ARQUIVO}, linha 4`)}\n${colorirPython(c.chave ? codigo("codigo")[3] : codigoCorrigido()[3])}</pre>` +
+      `<span class="selo">${c.chave ? "a chave está visível" : "a chave sumiu desta versão"}</span></div>`).join("") +
+      `<p class="vazio" id="repo-vazio">nenhuma versão enviada</p>`);
+    const terminal = painelEl("painel-saida", "terminal · comandos digitados", `<div id="stdout"></div>`);
+    Object.assign(terminal.style, {top: "408px", height: "192px"});
+    const comandos = final.comandos.map((c) => $("stdout").appendChild(criarEl("div", "saida-linha", `<span class="prompt">$ </span>${escapar(c)}`)));
+    const commits = final.repositorio.map((_, k) => $("commit-" + k));
+    const selos = commits.map((c) => c.querySelector(".selo"));
+    const linha4 = elLinhas[3];
+    const b = caixaTrecho(linha4.querySelector(".texto"), JSON.stringify(CHAVE_ESCRITA)), bc = caixa($("codigo"));
+    const aviso = $("codigo").appendChild(criarEl("div", "aviso-trecho", "<span>chave escrita no arquivo</span>"));
+    Object.assign(aviso.style, {left: (b.x - bc.x - 4) + "px", top: (b.y - bc.y - 3) + "px", width: (b.w + 8) + "px", height: (b.h + 6) + "px"});
+    const bCod = caixa($("painel-codigo"));
+    const voosCommit = commits.map((el) => {
+      const d = caixa(el);
+      return {cartao: cartao("pedido-voo", escapar(ARQUIVO), {x: d.x + 20, y: d.y + 6}), origem: {x: bCod.x + 400, y: bCod.y + 60}, chegada: {x: d.x + 20, y: d.y + 6}};
+    });
+
+    gsap.set([...comandos, ...commits, aviso], {autoAlpha: 0});
+    tl.addLabel("p0", 0);
+    estados.forEach((s, i) => {
+      if (i === 0) return;
+      const a = estados[i - 1], t = tl.duration() + 0.001;
+      tl.to({}, {duration: 0.4}, t);
+      narracao.transicao(tl, i, t);
+      marcar(s, a, t);
+      if (s.destaque !== a.destaque) fade(aviso, s.destaque ? 1 : 0, t, DUR.marcador);
+      if (s.corrigido && !a.corrigido) linha4.pilha.transicao(tl, 1, t);
+      for (let k = a.comandos.length; k < s.comandos.length; k++) fade(comandos[k], 1, t + (k - a.comandos.length) * 0.12, DUR.narracao);
+      for (let k = a.repositorio.length; k < s.repositorio.length; k++) {
+        if (k === 0) fade("#repo-vazio", 0, t, DUR.salto);
+        const v = voosCommit[k], chegou = voar(tl, v.cartao, v.origem, v.chegada, t + 0.3);
+        fade(commits[k], 1, chegou, DUR.narracao);
+      }
+      tl.addLabel("p" + i, tl.duration());
+    });
   }
-  return {d: `M${x1},${y1} C${c1[0]},${c1[1]} ${c2[0]},${c2[1]} ${x2},${y2}`, ponta: pontaDaSeta(c2, [x2, y2])};
-}
-function caminhoPelaCalha(a, b, calha) {
-  const x1 = a.x + a.w + 3, y1 = a.y + a.h / 2, x2 = b.x + b.w + 6, y2 = b.y + b.h / 2, r = 10, desce = y2 > y1 ? 1 : -1;
-  const d = `M${x1},${y1} L${calha - r},${y1} Q${calha},${y1} ${calha},${y1 + desce * r} L${calha},${y2 - desce * r} Q${calha},${y2} ${calha - r},${y2} L${x2},${y2}`;
-  return {d, ponta: pontaDaSeta([calha - r, y2], [x2, y2])};
-}
-// Ponta triangular em `fim`, alinhada com a direção que vem de `antes`.
-function pontaDaSeta(antes, fim) {
-  const [x2, y2] = fim, ang = Math.atan2(y2 - antes[1], x2 - antes[0]), L = 12, W = 7;
-  const bx = x2 - L * Math.cos(ang), by = y2 - L * Math.sin(ang);
-  return `M${x2},${y2} L${bx + W * Math.sin(ang)},${by - W * Math.cos(ang)} L${bx - W * Math.sin(ang)},${by + W * Math.cos(ang)} Z`;
+  return {estados, tl};
 }
 
-
-
-// Largura do traço por caractere: a linha mais comprida das duas respostas ocupa a largura da faixa.
-const LARGURA_DA_FAIXA = 180, ALTURA_DO_ROTULO = 28;
-
-// O mapa da resposta do cenário: os traços, as faixas que as marcas contornam, a chave e o rótulo de
-// cada trecho e, na API, o contorno tracejado da altura que a página tinha, na mesma escala.
-function desenhar(id) {
-  const mapa = $("mapa"), linhas = LINHAS[id];
-  const porCaractere = LARGURA_DA_FAIXA / Math.max(...LINHAS.html, ...LINHAS.json);
-  mapa.innerHTML = "";
-  mapa.dataset.grupo = "mapa-" + id;
-  const alturaDaPagina = LINHAS.html.length * PX_POR_LINHA;
-  linhas.forEach((n, k) => {
-    const traco = mapa.appendChild(criarEl("div", "traco"));
-    Object.assign(traco.style, {top: k * PX_POR_LINHA + "px", width: Math.max(1, n * porCaractere) + "px"});
-    if (k + 1 === NUMERO[id].linha) traco.dataset.alvo = "linha-numero";
-  });
-  if (id === "json") {
-    const fantasma = mapa.appendChild(criarEl("div", "fantasma"));
-    fantasma.style.height = alturaDaPagina + "px";
-    const rotulo = mapa.appendChild(criarEl("p", "rotulo-trecho", escapar(`a página: ${LINHAS.html.length} linhas`)));
-    rotulo.style.top = alturaDaPagina - ALTURA_DO_ROTULO + "px";
-  }
-  // Rótulo no meio do trecho, empurrado para baixo quando encostaria no anterior.
-  let livre = 0;
-  for (const t of TRECHOS[id]) {
-    const topo = (t.de - 1) * PX_POR_LINHA, altura = (t.ate - t.de + 1) * PX_POR_LINHA;
-    const faixa = mapa.appendChild(criarEl("div", "faixa"));
-    Object.assign(faixa.style, {top: topo + "px", height: altura + "px"});
-    faixa.dataset.alvo = "trecho-" + t.id;
-    const grupo = "rotulos-" + t.tipo;
-    const chave = mapa.appendChild(criarEl("div", "chave"));
-    // A chave fica 2 px mais curta em cada ponta, para os trechos vizinhos não virarem uma linha só.
-    Object.assign(chave.style, {top: topo + 2 + "px", height: Math.max(4, altura - 4) + "px"});
-    chave.dataset.grupo = grupo;
-    const y = Math.max(livre, topo + altura / 2 - ALTURA_DO_ROTULO / 2);
-    const rotulo = mapa.appendChild(criarEl("p", "rotulo-trecho", escapar(t.rotulo)));
-    rotulo.style.top = y + "px";
-    rotulo.dataset.grupo = grupo;
-    livre = y + ALTURA_DO_ROTULO;
-  }
-  mapa.style.height = Math.max(alturaDaPagina, livre) + "px";
-}
-cena({animacao, cenarios, montar, codigo, titulo, tipo, memoria, desenhar});
+iniciar({animacao, cenarios: cenarios.map((c) => c.id), rotulos: cenarios.map((c) => c.rotulo), preparar, espera: (s) => s.dur});
 </script>
 </body>
 </html>
