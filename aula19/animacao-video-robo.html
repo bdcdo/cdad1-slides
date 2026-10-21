@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robô autônomo num labirinto</title>
+<!--
+Vídeo do robô no labirinto, dentro do deck. O nome começa com `animacao-` porque é por ele que o
+visualizador do site troca a página do PDF por esta (ver `ver.html`), e o publicador de slides copia
+o vídeo ao lado desta página porque o `src` abaixo o cita.
+
+Na página do deck o quadro não recebe clique (o visualizador o desenha com pointer-events: none):
+o comando vem pela tecla, que o visualizador repassa por postMessage. Espaço toca e pausa, R volta
+ao começo. As setas continuam mudando de página, porque esta página não informa passos ao
+visualizador. Aberta sozinha no navegador, ela aceita também clique e os controles do vídeo.
+
+O vídeo é o `RoboLoopECondicional.mp4` convertido para H.264 em 21/10/2026: o original é HEVC, que
+o Chrome e o Brave só tocam com decodificador de hardware.
+-->
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #000; color: #fff; font-family: system-ui, sans-serif; }
+  main { height: 100%; display: flex; align-items: center; justify-content: center; gap: 4vw; }
+  video { height: 92vh; max-width: 60vw; background: #000; }
+  p { max-width: 30vw; font-size: clamp(16px, 2.4vw, 32px); line-height: 1.35; }
+  .dica { color: #c8c8c8; font-size: clamp(16px, 1.6vw, 22px); }
+</style>
+</head>
+<body>
+<main>
+  <video id="video" src="robo-labirinto.mp4" preload="auto" playsinline controls></video>
+  <div>
+    <p>Repetir e decidir vocês já escrevem em Python. O que ainda falta para este programa existir?</p>
+    <p class="dica">Espaço toca e pausa; R volta ao começo.</p>
+  </div>
+</main>
+<script>
+const video = document.getElementById("video");
+// Tocar com som exige um gesto da pessoa nesta página; quando o pedido vem do visualizador, o
+// navegador pode recusar o som. Aí o vídeo toca sem som, em vez de não tocar.
+function alternar() {
+  if (!video.paused) { video.pause(); return; }
+  video.muted = false;
+  video.play().catch(() => { video.muted = true; video.play(); });
+}
+function comando(tecla) {
+  if (tecla === " ") alternar();
+  else if (tecla === "r" || tecla === "R") { video.currentTime = 0; }
+}
+addEventListener("message", (e) => { if (e.data?.tipo === "tecla") comando(e.data.key); });
+addEventListener("keydown", (e) => {
+  if (e.target === video) return;  // os controles do próprio vídeo já tratam a tecla
+  if (e.key === " " || e.key === "r" || e.key === "R") { e.preventDefault(); comando(e.key); }
+});
+</script>
+</body>
+</html>
