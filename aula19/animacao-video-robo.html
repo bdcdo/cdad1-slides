@@ -20,15 +20,16 @@ o Chrome e o Brave só tocam com decodificador de hardware.
 <style>
   :root { color-scheme: dark; }
   html, body { margin: 0; height: 100%; background: #000; color: #fff; font-family: system-ui, sans-serif; }
-  main { height: 100%; display: flex; align-items: center; justify-content: center; gap: 4vw; }
-  video { height: 92vh; max-width: 60vw; background: #000; }
-  p { max-width: 30vw; font-size: clamp(16px, 2.4vw, 32px); line-height: 1.35; }
+  main { height: 100%; display: flex; align-items: center; justify-content: center; gap: 3vw; }
+  /* O vídeo ocupa a altura inteira, sem margem: é retrato, e a sobra fica para a pergunta. */
+  video { height: 100vh; max-width: 70vw; display: block; background: #000; }
+  p { max-width: 26vw; font-size: clamp(16px, 2.4vw, 32px); line-height: 1.35; }
   .dica { color: #c8c8c8; font-size: clamp(16px, 1.6vw, 22px); }
 </style>
 </head>
 <body>
 <main>
-  <video id="video" src="robo-labirinto.mp4" preload="auto" playsinline controls></video>
+  <video id="video" src="robo-labirinto.mp4" preload="auto" playsinline></video>
   <div>
     <p>Repetir e decidir vocês já escrevem em Python. O que ainda falta para este programa existir?</p>
     <p class="dica">Espaço toca e pausa; R volta ao começo.</p>
@@ -36,6 +37,9 @@ o Chrome e o Brave só tocam com decodificador de hardware.
 </main>
 <script>
 const video = document.getElementById("video");
+// Dentro do deck, o quadro não recebe clique, e a barra de controles só ocuparia espaço. Aberta
+// sozinha, a página mostra os controles.
+if (parent === window) video.controls = true;
 // Tocar com som exige um gesto da pessoa nesta página; quando o pedido vem do visualizador, o
 // navegador pode recusar o som. Aí o vídeo toca sem som, em vez de não tocar.
 function alternar() {
