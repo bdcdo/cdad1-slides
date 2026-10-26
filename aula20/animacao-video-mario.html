@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>O Mario em outros jogos</title>
+<!--
+Trecho de 0:17 a 2:08 do vídeo "Añadiendo Mario 64 a CUALQUIER juego", do canal Guinxu (YouTube,
+11/04/2024), dentro do deck. O nome começa com `animacao-` porque é por ele que o visualizador do
+site troca a página do PDF por esta (ver `ver.html`).
+
+O vídeo fica no YouTube e é embutido pelo player dele, e não baixado: o site de slides é público, e
+copiar o arquivo para lá seria redistribuir o vídeo de outra pessoa. O custo é depender da rede da
+sala. O início e o fim do trecho vão nos parâmetros `start` e `end` do endereço.
+
+Na página do deck o quadro não recebe clique (o visualizador o desenha com pointer-events: none):
+o comando vem pela tecla, que o visualizador repassa por postMessage, e esta página o repassa ao
+player pelo protocolo de mensagens do YouTube (`enablejsapi=1`), sem carregar script de fora.
+Espaço toca e pausa, R volta ao começo do trecho. As setas continuam mudando de página. Aberta
+sozinha no navegador, a página aceita também clique nos controles do player.
+
+O som depende de o navegador aceitar o pedido de tocar, que nasce de uma tecla na página de cima.
+O `allow="autoplay"` do iframe repassa ao YouTube a permissão que esta página herda do visualizador,
+que tem a mesma origem.
+-->
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #000; color: #fff; font-family: system-ui, sans-serif; }
+  main { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  iframe { width: 100vw; height: calc(100vh - 3.2em); border: 0; display: block; background: #000; }
+  p { margin: 0.6em 0 0; color: #c8c8c8; font-size: clamp(14px, 1.4vw, 20px); }
+</style>
+</head>
+<body>
+<main>
+  <iframe id="player" title="Añadiendo Mario 64 a CUALQUIER juego, Guinxu" allow="autoplay; fullscreen"
+    src="https://www.youtube-nocookie.com/embed/tM3vBemhy8g?start=17&end=128&enablejsapi=1&rel=0&modestbranding=1&playsinline=1"></iframe>
+  <p>Guinxu, "Añadiendo Mario 64 a CUALQUIER juego", YouTube, 2024, de 0:17 a 2:08. Espaço toca e pausa; R volta ao começo.</p>
+</main>
+<script>
+const player = document.getElementById("player");
+const INICIO = 17;
+let tocando = false;
+function mandar(func, args = []) {
+  player.contentWindow.postMessage(JSON.stringify({event: "command", func, args}), "*");
+}
+function comando(tecla) {
+  if (tecla === " ") { mandar(tocando ? "pauseVideo" : "playVideo"); tocando = !tocando; }
+  else if (tecla === "r" || tecla === "R") { mandar("seekTo", [INICIO, true]); }
+}
+// O player avisa quando toca, pausa ou acaba (inclusive pelo `end` do trecho), e o estado local
+// segue o dele: sem isso, o primeiro espaço depois do fim mandaria pausar um vídeo parado.
+addEventListener("message", (e) => {
+  if (e.data?.tipo === "tecla") { comando(e.data.key); return; }
+  if (typeof e.data !== "string" || !e.origin.includes("youtube")) return;
+  try {
+    const msg = JSON.parse(e.data);
+    const estado = msg.info?.playerState;
+    if (estado !== undefined) tocando = estado === 1 || estado === 3;
+  } catch { /* mensagem de outro tipo */ }
+});
+// "listening" pede ao player que mande os eventos de estado para esta página.
+player.addEventListener("load", () => player.contentWindow.postMessage(JSON.stringify({event: "listening"}), "*"));
+addEventListener("keydown", (e) => {
+  if (e.key === " " || e.key === "r" || e.key === "R") { e.preventDefault(); comando(e.key); }
+});
+</script>
+</body>
+</html>
