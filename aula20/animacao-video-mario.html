@@ -6,62 +6,60 @@
 <title>O Mario em outros jogos</title>
 <!--
 Trecho de 0:17 a 2:08 do vídeo "Añadiendo Mario 64 a CUALQUIER juego", do canal Guinxu (YouTube,
-11/04/2024), dentro do deck. O nome começa com `animacao-` porque é por ele que o visualizador do
-site troca a página do PDF por esta (ver `ver.html`).
+11/04/2024, vídeo tM3vBemhy8g), dentro do deck. O nome começa com `animacao-` porque é por ele que o
+visualizador do site troca a página do PDF por esta (ver `ver.html`), e o publicador de slides copia
+o `mario-outros-jogos.mp4` ao lado desta página porque o `src` abaixo o cita.
 
-O vídeo fica no YouTube e é embutido pelo player dele, e não baixado: o site de slides é público, e
-copiar o arquivo para lá seria redistribuir o vídeo de outra pessoa. O custo é depender da rede da
-sala. O início e o fim do trecho vão nos parâmetros `start` e `end` do endereço.
+Até 27/10/2026 o trecho era embutido pelo player do YouTube num iframe. Dentro do visualizador, o
+Brave não tocava esse iframe pelo comando de teclado: o pedido de tocar nasce de uma tecla na página
+de cima, e o navegador bloqueia a reprodução automática num quadro de outro domínio. O Bruno decidiu
+nessa data trocar o embed por um clipe local, no molde do vídeo do robô da aula 19. O clipe é o
+trecho cortado com ffmpeg e convertido para H.264 e AAC em 720p, que o Chrome e o Brave tocam sem
+decodificador de hardware; o `+faststart` põe o índice no começo do arquivo, e o vídeo começa a
+tocar antes de terminar de baixar.
 
 Na página do deck o quadro não recebe clique (o visualizador o desenha com pointer-events: none):
-o comando vem pela tecla, que o visualizador repassa por postMessage, e esta página o repassa ao
-player pelo protocolo de mensagens do YouTube (`enablejsapi=1`), sem carregar script de fora.
-Espaço toca e pausa, R volta ao começo do trecho. As setas continuam mudando de página. Aberta
-sozinha no navegador, a página aceita também clique nos controles do player.
-
-O som depende de o navegador aceitar o pedido de tocar, que nasce de uma tecla na página de cima.
-O `allow="autoplay"` do iframe repassa ao YouTube a permissão que esta página herda do visualizador,
-que tem a mesma origem.
+o comando vem pela tecla, que o visualizador repassa por postMessage. Espaço toca e pausa, R volta
+ao começo. As setas continuam mudando de página, porque esta página não informa passos ao
+visualizador. Pelo mesmo motivo o modo `?embutido=cheio` não muda nada aqui: a página não tem barra
+de controles própria para esconder. Aberta sozinha no navegador, ela aceita também clique e os
+controles do vídeo.
 -->
 <style>
   :root { color-scheme: dark; }
   html, body { margin: 0; height: 100%; background: #000; color: #fff; font-family: system-ui, sans-serif; }
   main { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  iframe { width: 100vw; height: calc(100vh - 3.2em); border: 0; display: block; background: #000; }
-  p { margin: 0.6em 0 0; color: #c8c8c8; font-size: clamp(14px, 1.4vw, 20px); }
+  /* O vídeo é paisagem: ocupa a largura e a altura que sobram da linha de crédito, sem cortar a
+     imagem (object-fit: contain deixa faixa preta no lado que sobrar). */
+  video { width: 100vw; height: calc(100vh - 2.6em); object-fit: contain; display: block; background: #000; }
+  p { margin: 0.5em 0 0; color: #c8c8c8; font-size: clamp(14px, 1.4vw, 20px); }
 </style>
 </head>
 <body>
 <main>
-  <iframe id="player" title="Añadiendo Mario 64 a CUALQUIER juego, Guinxu" allow="autoplay; fullscreen"
-    src="https://www.youtube-nocookie.com/embed/tM3vBemhy8g?start=17&end=128&enablejsapi=1&rel=0&modestbranding=1&playsinline=1"></iframe>
+  <video id="video" src="mario-outros-jogos.mp4" preload="auto" playsinline
+    aria-label="Añadiendo Mario 64 a CUALQUIER juego, Guinxu, de 0:17 a 2:08"></video>
   <p>Guinxu, "Añadiendo Mario 64 a CUALQUIER juego", YouTube, 2024, de 0:17 a 2:08. Espaço toca e pausa; R volta ao começo.</p>
 </main>
 <script>
-const player = document.getElementById("player");
-const INICIO = 17;
-let tocando = false;
-function mandar(func, args = []) {
-  player.contentWindow.postMessage(JSON.stringify({event: "command", func, args}), "*");
+const video = document.getElementById("video");
+// Dentro do deck, o quadro não recebe clique, e a barra de controles só ocuparia espaço. Aberta
+// sozinha, a página mostra os controles.
+if (parent === window) video.controls = true;
+// Tocar com som exige um gesto da pessoa nesta página; quando o pedido vem do visualizador, o
+// navegador pode recusar o som. Aí o vídeo toca sem som, em vez de não tocar.
+function alternar() {
+  if (!video.paused) { video.pause(); return; }
+  video.muted = false;
+  video.play().catch(() => { video.muted = true; video.play(); });
 }
 function comando(tecla) {
-  if (tecla === " ") { mandar(tocando ? "pauseVideo" : "playVideo"); tocando = !tocando; }
-  else if (tecla === "r" || tecla === "R") { mandar("seekTo", [INICIO, true]); }
+  if (tecla === " ") alternar();
+  else if (tecla === "r" || tecla === "R") { video.currentTime = 0; }
 }
-// O player avisa quando toca, pausa ou acaba (inclusive pelo `end` do trecho), e o estado local
-// segue o dele: sem isso, o primeiro espaço depois do fim mandaria pausar um vídeo parado.
-addEventListener("message", (e) => {
-  if (e.data?.tipo === "tecla") { comando(e.data.key); return; }
-  if (typeof e.data !== "string" || !e.origin.includes("youtube")) return;
-  try {
-    const msg = JSON.parse(e.data);
-    const estado = msg.info?.playerState;
-    if (estado !== undefined) tocando = estado === 1 || estado === 3;
-  } catch { /* mensagem de outro tipo */ }
-});
-// "listening" pede ao player que mande os eventos de estado para esta página.
-player.addEventListener("load", () => player.contentWindow.postMessage(JSON.stringify({event: "listening"}), "*"));
+addEventListener("message", (e) => { if (e.data?.tipo === "tecla") comando(e.data.key); });
 addEventListener("keydown", (e) => {
+  if (e.target === video) return;  // os controles do próprio vídeo já tratam a tecla
   if (e.key === " " || e.key === "r" || e.key === "R") { e.preventDefault(); comando(e.key); }
 });
 </script>
