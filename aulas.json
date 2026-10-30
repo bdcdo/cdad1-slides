@@ -106,5 +106,11 @@
   "data": "qua 21/10",
   "titulo": "Bibliotecas e modelos de linguagem",
   "arquivo": "aula19/aula19.pdf"
+ },
+ {
+  "aula": "20",
+  "data": "sex 30/10",
+  "titulo": "Uma análise do início ao fim: pandas, regex e modelo",
+  "arquivo": "aula20/aula20.pdf"
  }
 ]
