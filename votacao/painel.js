@@ -10,7 +10,10 @@
 // localStorage deste navegador, num mapa da origem do servidor para a chave: outra aba e a aula seguinte abrem a
 // votação sem pedir a chave, e a chave de uma origem não sobrescreve a de outra (a do servidor local de teste fica
 // ao lado da do servidor de produção). A chave só vai ao servidor com que foi aceita; outra origem pede a sua.
-// Chave recusada (403) sai do mapa, só a daquela origem, e o painel volta a pedir.
+// Só a chave digitada no campo se grava, quando abre a rodada: Nova rodada, ou a abertura com a chave que já veio
+// do mapa, não grava, para que uma aba aberta não devolva ao mapa a chave que outra aba esqueceu. Chave recusada
+// (403) sai do mapa só se for a que está guardada para aquela origem: a consulta atrasada de uma aba, ainda com a
+// chave antiga, não apaga a chave nova que outra aba gravou. Em todo 403, o painel da aba volta a pedir.
 //
 // Risco aceito: o localStorage é da origem do site, e qualquer página servida dessa origem pode ler a chave,
 // inclusive outro site publicado no mesmo domínio. Por isso o painel tem o botão Esquecer chave, que apaga a chave
@@ -299,32 +302,39 @@ function pedirChave(texto, erro = false) {
   painel.campo.focus();
 }
 
-// Interrompe a consulta, apaga a chave da origem em uso (as das outras origens ficam) e volta ao campo.
+// Interrompe a consulta, tira a chave da aba e volta ao campo. O mapa do navegador fica a cargo de quem chama.
 function largarChave(texto, erro) {
   parar();
-  guardarChave(estado.origem, null);
   estado.chave = null;
   estado.codigo = null;
   pedirChave(texto, erro);
 }
 
+// Apaga do mapa só a chave que levou o 403 (as das outras origens ficam). Se outra aba já gravou uma chave nova
+// para esta origem, ela fica.
 function recusarChave() {
+  if (chaveGuardada(estado.origem) === estado.chave) guardarChave(estado.origem, null);
   largarChave('O servidor recusou a chave do professor. Digite de novo.', true);
 }
 
+// Apaga a chave da origem em uso sem conferir qual é: o professor pediu que este navegador não a guarde.
 function esquecerChave() {
+  guardarChave(estado.origem, null);
   largarChave('Chave esquecida neste navegador. Digite a chave para abrir a votação.', false);
 }
 
-function entrar() {
+async function entrar() {
   const chave = painel.campo.value.trim();
   // A chave sai do campo assim que lida: só o navegador guarda, e só depois de aceita.
   painel.campo.value = '';
   if (!chave) return avisar('Digite a chave do professor.', true);
   estado.chave = chave;
-  return abrirRodada(false);
+  // Só a chave digitada que abriu uma rodada fica guardada: a digitada errado, ou que não chegou ao servidor, não.
+  // Quem abre a rodada com a chave que já veio do mapa (a abertura do painel, Nova rodada) não grava.
+  if (await abrirRodada(false)) guardarChave(estado.origem, chave);
 }
 
+// Devolve true quando a rodada abriu e a consulta começou.
 async function abrirRodada(nova) {
   parar();
   const minha = geracao;
@@ -340,10 +350,9 @@ async function abrirRodada(nova) {
   if (resposta.status === 403) return recusarChave();
   if (!resposta.ok) return avisar(mensagemDeErro(resposta), true);
   if (!mostrarRodada(resposta.dado)) return avisar('O servidor da votação respondeu com um código de rodada inválido.', true);
-  // Só a chave que abriu uma rodada fica guardada: a digitada errado, ou que não chegou ao servidor, não.
-  guardarChave(estado.origem, estado.chave);
   avisar(nova ? 'Rodada nova aberta. As respostas anteriores ficaram de fora.' : '');
   agendar(minha);
+  return true;
 }
 
 function alternarRevelacao() {
