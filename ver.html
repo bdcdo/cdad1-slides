@@ -189,9 +189,8 @@ addEventListener("hashchange", () => mostrar(Number(location.hash.slice(1)) || 1
 // Votação da turma, pela tecla V: um painel sobre a página atual, com o QR code, a contagem e as respostas, em
 // votacao/painel.js, que só é baixado na primeira vez que a tecla é usada. A chave do professor não passa pelo
 // endereço da página: o painel pede a chave num campo próprio e a guarda no localStorage deste navegador, uma por
-// origem do servidor, até ser recusada ou esquecida (ver painel.js). Risco aceito: qualquer página da origem deste
-// site pode ler esse armazenamento, e por isso o painel tem o botão Esquecer chave. O servidor de desenvolvimento
-// escolhido por &servidor=, abaixo, continua guardado só na aba.
+// origem do servidor, até ser recusada ou esquecida (ver painel.js). O servidor de desenvolvimento escolhido por
+// &servidor=, abaixo, continua guardado só na aba.
 // Endereço com &chave=, de um link antigo, não guarda nada: o valor é ignorado, sai da barra logo na abertura e o
 // painel avisa que a chave agora se digita nele. Isso não desfaz a visita já gravada no histórico com a chave.
 //

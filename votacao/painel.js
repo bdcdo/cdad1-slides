@@ -132,7 +132,7 @@ function chavesGuardadas() {
 // A chave guardada para esta origem, ou null.
 function chaveGuardada(origem) {
   const mapa = chavesGuardadas();
-  return Object.hasOwn(mapa, origem) && typeof mapa[origem] === 'string' && mapa[origem] ? mapa[origem] : null;
+  return typeof mapa[origem] === 'string' && mapa[origem] ? mapa[origem] : null;
 }
 
 // Grava a chave de uma origem, ou a apaga quando `chave` é null, sem mexer nas chaves das outras origens.
@@ -313,7 +313,7 @@ function recusarChave() {
 }
 
 function esquecerChave() {
-  if (estado?.chave) largarChave('Chave esquecida neste navegador. Digite a chave para abrir a votação.', false);
+  largarChave('Chave esquecida neste navegador. Digite a chave para abrir a votação.', false);
 }
 
 function entrar() {
