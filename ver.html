@@ -160,6 +160,7 @@ addEventListener("message", (e) => { if (e.data?.tipo === "animacao") estados.se
 
 // Na página de animação, avançar anda a animação até o último passo e só então muda de página.
 function andar(delta) {
+  if (abrindoVotacao) return; // os botões da barra, como as teclas, não mudam o slide enquanto a votação abre
   const q = quadro(), est = q && estados.get(q.contentWindow);
   if (q && est && delta > 0 && est.pos < est.total - 1) enviar("ArrowRight");
   else if (q && est && delta < 0 && est.pos > 0) enviar("ArrowLeft");
@@ -170,8 +171,12 @@ function andar(delta) {
 
 addEventListener("keydown", (e) => {
   if (e.altKey || e.ctrlKey || e.metaKey) return;
-  // Enquanto a votação abre, só a tela cheia responde (ver abrindoVotacao).
-  if (abrindoVotacao && e.key.toLowerCase() !== "f") return e.preventDefault();
+  // Enquanto a votação abre, as teclas do slide não valem (ver abrindoVotacao); a tela cheia e as teclas do próprio
+  // navegador, como F5 e F11, seguem.
+  if (abrindoVotacao && e.key.toLowerCase() !== "f") {
+    if (e.key.length === 1 || /^(Arrow|Page|Home|End)/.test(e.key)) e.preventDefault();
+    return;
+  }
   if (["ArrowRight", "PageDown"].includes(e.key)) andar(1);
   else if (["ArrowLeft", "PageUp"].includes(e.key)) andar(-1);
   else if (quadro() && [" ", "r", "R", "1", "2", "3", "Home", "End"].includes(e.key)) enviar(e.key);
@@ -254,9 +259,10 @@ function lerParametrosDaVotacao() {
   if (!servidor) avisosDoEndereco.recusado = lidos.servidor;
   gravarServidorDaAba(servidor);
 }
-// Da tecla V até o painel abrir, as teclas do slide não valem. Na primeira vez o módulo e a folha de estilo do painel
-// ainda baixam, e uma seta nesse intervalo mudava o slide por baixo do painel, que abria com a rodada e a pergunta de
-// outra página. Aberto o diálogo, as teclas já são do painel (painel.js).
+// Da tecla V até o diálogo do painel abrir, as teclas e os botões do slide não valem. Na primeira vez o módulo e a
+// folha de estilo do painel ainda baixam, e uma seta nesse intervalo mudava o slide por baixo do painel, que abria com
+// a rodada e a pergunta de outra página. `abrir` termina quando o diálogo abre, sem esperar o pedido da rodada; daí
+// em diante as teclas são do painel (painel.js), e, fechado o painel, de novo do slide.
 let abrindoVotacao = false;
 async function abrirVotacao() {
   const avisos = {...avisosDoEndereco};
