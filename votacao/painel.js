@@ -443,6 +443,11 @@ export async function abrir({ deck, pagina, pergunta = null, servidor, recusado 
   if (!estado.chave) return pedirChave(ignorada, chaveIgnorada);
   // De novo, agora com a chave guardada em estado: o botão Esquecer chave aparece antes da resposta do servidor.
   modo('aviso');
-  await abrirRodada(false);
-  if (ignorada && estado.codigo) avisar(ignorada);
+  // Sem esperar a rodada: o visualizador trava as teclas do slide até `abrir` terminar (abrindoVotacao, no ver.html),
+  // e o diálogo já aberto toma as teclas. Esperar o pedido, que pode levar até TEMPO_LIMITE_MS, deixava as setas presas
+  // depois de o professor fechar o painel.
+  // `abrirRodada` só devolve true ao pedido que ainda vale: a resposta de um painel já fechado não escreve no seguinte.
+  abrirRodada(false)
+    .then(abriu => { if (abriu && ignorada) avisar(ignorada); })
+    .catch(erro => console.error('Votação:', erro));
 }
