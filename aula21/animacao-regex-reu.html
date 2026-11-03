@@ -99,12 +99,12 @@ html.recortado body { position: relative; overflow: clip; }
 .sentenca { position: absolute; left: 12px; right: 12px; top: 6px; }
 .sentenca pre { margin: 2px 0 0; font: 27px/1.25 var(--mono); white-space: pre-wrap; tab-size: 4; color: var(--texto); }
 .sentenca .marca { border-radius: 2px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
-.sentenca .marca.vazio { display: inline-block; width: 8px; height: 1.1em; margin: 0 -4px; vertical-align: text-bottom; }
+.sentenca .marca.vazio { display: inline-block; width: 8px; height: 1.1em; vertical-align: text-bottom; }
 .sentenca .corte { font: italic 22px system-ui, sans-serif; color: var(--apoio); }
-#legenda { position: absolute; right: 12px; bottom: 6px; font: 22px/28px system-ui, sans-serif; color: var(--texto); background: var(--fundo); padding-left: 8px; }
+#legenda { position: absolute; right: 12px; top: 4px; font: 22px/28px system-ui, sans-serif; color: var(--texto); background: var(--fundo); padding-left: 8px; }
 #legenda .amostra { font-family: var(--mono); padding: 0 4px; border-radius: 2px; }
 #legenda .amostra.fora { background: #e3f0f9; box-shadow: inset 0 -4px 0 0 #1f4e79; }
-#legenda .amostra.grupo { background: #dcf2ea; box-shadow: 0 0 0 2px #00805d; }
+#legenda .amostra.grupo { background: #dcf2ea; box-shadow: 0 0 0 3px #00805d; }
 
 #painel-coluna { top: 506px; height: 118px; padding-top: 4px; }
 #painel-coluna h2 { display: flex; justify-content: space-between; }
@@ -662,19 +662,21 @@ gsap.registerPlugin(MotionPathPlugin, DrawSVGPlugin);
 const ap = (fundo, contorno, sublinhado, risco = "none") => ({anim: {backgroundColor: fundo, boxShadow: `${contorno}, inset 0 -4px 0 0 ${sublinhado}`}, risco});
 const SEM = "rgba(31,78,121,0)";
 const MARCA = {
-  neutra: ap("rgba(255,255,255,0)", "0 0 0 0px rgba(89,89,89,0)", SEM),
-  quase: ap("rgba(236,236,236,1)", "0 0 0 2px rgba(89,89,89,1)", SEM, "line-through"),
-  extra: ap("rgba(236,236,236,1)", "0 0 0 2px rgba(89,89,89,1)", SEM),
+  neutra: ap("rgba(255,255,255,0)", "0 0 0 3px rgba(89,89,89,0)", SEM),
+  quase: ap("rgba(236,236,236,1)", "0 0 0 3px rgba(89,89,89,1)", SEM, "line-through"),
+  extra: ap("rgba(236,236,236,1)", "0 0 0 3px rgba(89,89,89,1)", SEM),
   atual: ap("rgba(255,243,196,1)", "0 0 0 3px rgba(114,84,0,1)", SEM),
-  fora: ap("rgba(227,240,249,1)", "0 0 0 0px rgba(89,89,89,0)", "rgba(31,78,121,1)"),
-  grupo: ap("rgba(220,242,234,1)", "0 0 0 2px rgba(0,128,93,1)", SEM),
+  fora: ap("rgba(227,240,249,1)", "0 0 0 3px rgba(89,89,89,0)", "rgba(31,78,121,1)"),
+  grupo: ap("rgba(220,242,234,1)", "0 0 0 3px rgba(0,128,93,1)", SEM),
 };
+// A espessura do contorno não muda de um estado a outro, só a cor: contorno que encolhe deixava
+// resto de pintura no Chrome, na borda do trecho.
 const PECA = {
-  neutra: ap("rgba(255,255,255,1)", "0 0 0 2px rgba(115,115,115,1)", SEM),
-  atual: ap("rgba(255,243,196,1)", "0 0 0 4px rgba(114,84,0,1)", SEM),
-  fora: ap("rgba(227,240,249,1)", "0 0 0 2px rgba(31,78,121,1)", "rgba(31,78,121,1)"),
-  grupo: ap("rgba(220,242,234,1)", "0 0 0 2px rgba(0,128,93,1)", SEM),
-  falhou: ap("rgba(236,236,236,1)", "0 0 0 2px rgba(89,89,89,1)", SEM, "line-through"),
+  neutra: ap("rgba(255,255,255,1)", "0 0 0 2px rgba(115,115,115,1), 0 0 0 4px rgba(115,115,115,0)", SEM),
+  atual: ap("rgba(255,243,196,1)", "0 0 0 2px rgba(114,84,0,1), 0 0 0 4px rgba(114,84,0,1)", SEM),
+  fora: ap("rgba(227,240,249,1)", "0 0 0 2px rgba(31,78,121,1), 0 0 0 4px rgba(31,78,121,0)", "rgba(31,78,121,1)"),
+  grupo: ap("rgba(220,242,234,1)", "0 0 0 2px rgba(0,128,93,1), 0 0 0 4px rgba(0,128,93,0)", SEM),
+  falhou: ap("rgba(236,236,236,1)", "0 0 0 2px rgba(89,89,89,1), 0 0 0 4px rgba(89,89,89,0)", SEM, "line-through"),
 };
 const feita = (k) => (k === 6 ? "grupo" : "fora");
 function aparenciaPeca(s, k) {
