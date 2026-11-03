@@ -121,12 +121,15 @@
   overflow-wrap: break-word;
   text-wrap: pretty;
 }
-/* Respostas à mostra: a pergunta vira o título das barras, em cima delas. */
-.votacao[data-pergunta][data-modo="revelado"] .votacao-corpo {
-  grid-template-rows: auto auto minmax(0, 1fr);
-  grid-template-areas: "pergunta qr" "respostas qr" "respostas lado";
+/* Respostas à mostra: a pergunta vai para dentro da seção das respostas (painel.js), como título das barras, e rola
+   com elas. A grade fica a mesma de sem pergunta, e a coluna do lado não se mexe com pergunta longa. */
+.votacao-respostas .votacao-pergunta {
+  display: block;
+  contain: none;
+  overflow: visible;
+  margin-bottom: clamp(12px, 2.2dvh, 24px);
+  font-size: clamp(20px, 3.6dvh, 44px);
 }
-.votacao[data-modo="revelado"] .votacao-pergunta { contain: none; font-size: clamp(20px, 3.6dvh, 44px); }
 
 .votacao-qr { grid-area: qr; margin: 0; width: var(--v-qr); height: var(--v-qr); }
 .votacao-qr svg { display: block; width: 100%; height: 100%; }

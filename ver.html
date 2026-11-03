@@ -258,7 +258,10 @@ async function abrirVotacao() {
   Object.assign(avisosDoEndereco, {recusado: null, chaveIgnorada: false});
   try {
     const {abrir} = await import("./votacao/painel.js");
-    await abrir({deck: arquivo, pagina: atual, pergunta: paginas[atual]?.pergunta, servidor: servidorDaAba(), ...avisos});
+    // A página atual pode estar ainda em leitura (V logo depois de mudar de slide): espera por ela, para a pergunta não
+    // faltar. Antes de o PDF abrir, não há página nem pergunta.
+    const pergunta = pdf ? (await ler(atual)).pergunta : null;
+    await abrir({deck: arquivo, pagina: atual, pergunta, servidor: servidorDaAba(), ...avisos});
   } catch (erro) { console.error("Votação:", erro); }
 }
 lerParametrosDaVotacao();

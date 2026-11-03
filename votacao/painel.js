@@ -104,7 +104,7 @@ async function montarDeVez() {
   document.body.append(dialogo);
   const achar = seletor => dialogo.querySelector(seletor);
   painel = {
-    dialogo, pergunta: achar('.votacao-pergunta'), qr: achar('.votacao-qr'), titulo: achar('.votacao-titulo'), endereco: achar('.votacao-endereco'),
+    dialogo, corpo: achar('.votacao-corpo'), pergunta: achar('.votacao-pergunta'), qr: achar('.votacao-qr'), titulo: achar('.votacao-titulo'), endereco: achar('.votacao-endereco'),
     contagem: achar('.votacao-contagem'), numero: achar('.votacao-numero'), unidade: achar('.votacao-unidade'),
     estado: achar('.votacao-estado'), revelar: achar('[data-acao="revelar"]'), nova: achar('[data-acao="nova"]'),
     respostas: achar('.votacao-respostas'), grupos: achar('.votacao-grupos'), vazio: achar('.votacao-vazio'),
@@ -173,12 +173,16 @@ function modo(nome) {
   painel.esquecer.hidden = nome === 'chave' || !estado?.chave;
   painel.respostas.hidden = nome !== 'revelado';
   painel.revelar.textContent = nome === 'revelado' ? 'Esconder respostas (R)' : 'Revelar respostas (R)';
+  // Com as respostas à mostra, a pergunta é o título delas, dentro da seção; fora disso, volta a ser a metade da
+  // grade. Uma área própria na grade revelada, dividindo linhas com o QR, empurrava os botões para fora do painel.
+  if (nome === 'revelado') painel.respostas.prepend(painel.pergunta);
+  else painel.corpo.prepend(painel.pergunta);
   ajustarPergunta();
 }
 
 // A maior letra em que a pergunta cabe inteira na sua metade da tela, medida na tela, porque o espaço depende do
-// projetor e do tamanho do texto. Com as respostas à mostra, a pergunta vira um título acima das barras, com o
-// tamanho da folha de estilo.
+// projetor e do tamanho do texto. Com as respostas à mostra, a pergunta é o título das barras, com o tamanho da folha
+// de estilo.
 function ajustarPergunta() {
   const { pergunta, dialogo } = painel;
   pergunta.style.removeProperty('font-size');
