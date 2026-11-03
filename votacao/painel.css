@@ -71,6 +71,66 @@
   align-items: start;
 }
 
+/* Slide com pergunta marcada no deck: a tela se divide ao meio, a pergunta à esquerda e, à direita, o título, o QR, o
+   endereço e a contagem, um embaixo do outro. A coluna do lado deixa de ser caixa (display: contents) para cada peça
+   dela ocupar uma linha da grade, e o aviso e os botões correm por baixo das duas metades, deixando ao QR a altura
+   que sobra. O QR é menor que sem pergunta, mas ainda passa de um terço da altura da tela. */
+.votacao[data-pergunta]:not([data-modo="revelado"]) { --v-qr: min(50dvh, 40vw); }
+.votacao[data-pergunta]:not([data-modo="revelado"]) .votacao-corpo {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto auto;
+  grid-template-areas:
+    "pergunta titulo"
+    "pergunta qr"
+    "pergunta endereco"
+    "pergunta contagem"
+    "estado estado"
+    "acoes acoes";
+  row-gap: clamp(8px, 1.6dvh, 20px);
+  justify-items: center;
+}
+.votacao[data-pergunta]:not([data-modo="revelado"]) .votacao-lado { display: contents; }
+.votacao[data-pergunta]:not([data-modo="revelado"]) :is(.votacao-titulo, .votacao-endereco, .votacao-estado) { text-align: center; }
+.votacao[data-pergunta]:not([data-modo="revelado"]) .votacao-titulo { grid-area: titulo; font-size: clamp(20px, 3.4dvh, 40px); }
+.votacao[data-pergunta]:not([data-modo="revelado"]) .votacao-endereco { grid-area: endereco; font-size: clamp(18px, 3dvh, 36px); }
+.votacao[data-pergunta]:not([data-modo="revelado"]) .votacao-endereco strong { display: inline; }
+.votacao[data-pergunta]:not([data-modo="revelado"]) .votacao-contagem { grid-area: contagem; justify-content: center; }
+.votacao[data-pergunta]:not([data-modo="revelado"]) .votacao-numero { font-size: clamp(40px, 9dvh, 108px); }
+.votacao[data-pergunta]:not([data-modo="revelado"]) .votacao-unidade { font-size: clamp(18px, 3dvh, 36px); }
+.votacao[data-pergunta]:not([data-modo="revelado"]) .votacao-estado { grid-area: estado; }
+.votacao[data-pergunta]:not([data-modo="revelado"]) .votacao-acoes { grid-area: acoes; justify-content: center; }
+/* Sem a chave guardada, o campo fica no lugar do QR. */
+.votacao[data-pergunta]:not([data-modo="revelado"]) .votacao-chave { grid-area: qr; align-self: center; width: 100%; }
+
+/* A pergunta ocupa a metade dela inteira e não empurra as linhas da grade (contain: size): o painel.js escolhe a
+   maior letra em que o texto cabe nesse espaço. O "safe" mantém o começo da pergunta à vista se nem a menor letra
+   couber. */
+.votacao-pergunta {
+  grid-area: pergunta;
+  align-self: stretch;
+  justify-self: stretch;
+  contain: size;
+  overflow: hidden;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: safe center;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: pre-line;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}
+/* Respostas à mostra: a pergunta vai para dentro da seção das respostas (painel.js), como título das barras, e rola
+   com elas. A grade fica a mesma de sem pergunta, e a coluna do lado não se mexe com pergunta longa. */
+.votacao-respostas .votacao-pergunta {
+  display: block;
+  contain: none;
+  overflow: visible;
+  margin-bottom: clamp(12px, 2.2dvh, 24px);
+  font-size: clamp(20px, 3.6dvh, 44px);
+}
+
 .votacao-qr { grid-area: qr; margin: 0; width: var(--v-qr); height: var(--v-qr); }
 .votacao-qr svg { display: block; width: 100%; height: 100%; }
 .votacao-qr-fundo { fill: var(--v-qr-claro); }
