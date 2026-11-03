@@ -1,8 +1,9 @@
 // Painel de votação do visualizador de slides. Abre sobre a página atual, com o QR code para a turma responder pelo
-// celular, a contagem ao vivo e, quando o professor pede, as respostas agrupadas em barras.
+// celular, a contagem ao vivo e, quando o professor pede, as respostas agrupadas em barras. Se a página tem pergunta
+// marcada no deck, a tela se divide ao meio: a pergunta em letra grande numa metade, o QR e a contagem na outra.
 //
-// O visualizador (ver.html) importa este módulo só quando a tecla V é usada e passa o deck, a página e a origem do
-// servidor, já conferida pela regra de lá (origemAceita): este módulo não lê a URL nem revalida o servidor. O
+// O visualizador (ver.html) importa este módulo só quando a tecla V é usada e passa o deck, a página, a pergunta
+// lida do PDF (ou nada) e a origem do servidor, já conferida pela regra de lá (origemAceita): este módulo não lê a URL nem revalida o servidor. O
 // servidor da votação mora noutro domínio, e as rotas do professor só respondem com a chave no cabeçalho X-Chave.
 //
 // A chave do professor é digitada no próprio painel, num campo de senha, e nunca passa pelo endereço da página,
@@ -27,6 +28,9 @@ import { encode } from '../uqr/uqr.mjs';
 const INTERVALO_MS = 2000;
 const TEMPO_LIMITE_MS = 8000;
 const SVG = 'http://www.w3.org/2000/svg';
+// Tamanho da letra da pergunta, em fração da altura da janela: começa no maior e desce até a pergunta caber na
+// metade dela. Abaixo do menor, a pergunta fica no menor e corta, em vez de virar letra que o fundo da sala não lê.
+const LETRA_DA_PERGUNTA = { maior: 0.09, menor: 0.04, passo: 0.005 };
 const CHAVES_DO_NAVEGADOR = 'votacao:chaves';
 // O servidor gera códigos de 4 caracteres de letras maiúsculas e algarismos (ALFABETO, no server.py). O código vai
 // para o QR e para o endereço projetado; fora deste formato, a resposta não é usada.
@@ -34,6 +38,7 @@ const CODIGO_VALIDO = /^[A-Z0-9]{2,12}$/;
 
 const MOLDE = `
 <div class="votacao-corpo">
+  <p class="votacao-pergunta" id="votacao-pergunta" hidden></p>
   <figure class="votacao-qr" hidden></figure>
   <div class="votacao-lado">
     <h2 class="votacao-titulo" id="votacao-titulo">Votação da turma</h2>
@@ -87,6 +92,7 @@ async function montarDeVez() {
   const dialogo = document.createElement('dialog');
   dialogo.className = 'votacao';
   dialogo.setAttribute('aria-labelledby', 'votacao-titulo');
+  dialogo.setAttribute('aria-describedby', 'votacao-pergunta');
   // O foco inicial fica no próprio diálogo, e não no primeiro botão, que é o que showModal() escolhe: o espaço do
   // passador de slides acionaria esse botão (Fechar ou Revelar) sem ninguém querer. O atributo autofocus no diálogo
   // diria o mesmo pela norma, mas o Chromium o ignora; daí o tabindex e o focus() depois de abrir. Tab entra nos
@@ -98,7 +104,7 @@ async function montarDeVez() {
   document.body.append(dialogo);
   const achar = seletor => dialogo.querySelector(seletor);
   painel = {
-    dialogo, qr: achar('.votacao-qr'), titulo: achar('.votacao-titulo'), endereco: achar('.votacao-endereco'),
+    dialogo, pergunta: achar('.votacao-pergunta'), qr: achar('.votacao-qr'), titulo: achar('.votacao-titulo'), endereco: achar('.votacao-endereco'),
     contagem: achar('.votacao-contagem'), numero: achar('.votacao-numero'), unidade: achar('.votacao-unidade'),
     estado: achar('.votacao-estado'), revelar: achar('[data-acao="revelar"]'), nova: achar('[data-acao="nova"]'),
     respostas: achar('.votacao-respostas'), grupos: achar('.votacao-grupos'), vazio: achar('.votacao-vazio'),
@@ -167,6 +173,21 @@ function modo(nome) {
   painel.esquecer.hidden = nome === 'chave' || !estado?.chave;
   painel.respostas.hidden = nome !== 'revelado';
   painel.revelar.textContent = nome === 'revelado' ? 'Esconder respostas (R)' : 'Revelar respostas (R)';
+  ajustarPergunta();
+}
+
+// A maior letra em que a pergunta cabe inteira na sua metade da tela, medida na tela, porque o espaço depende do
+// projetor e do tamanho do texto. Com as respostas à mostra, a pergunta vira um título acima das barras, com o
+// tamanho da folha de estilo.
+function ajustarPergunta() {
+  const { pergunta, dialogo } = painel;
+  pergunta.style.removeProperty('font-size');
+  if (pergunta.hidden || !dialogo.open || dialogo.dataset.modo === 'revelado') return;
+  const { maior, menor, passo } = LETRA_DA_PERGUNTA;
+  for (let fracao = maior; fracao >= menor - passo / 2; fracao -= passo) {
+    pergunta.style.fontSize = `${Math.round(fracao * innerHeight)}px`;
+    if (pergunta.scrollHeight <= pergunta.clientHeight) return;
+  }
 }
 
 function parar() {
@@ -377,6 +398,8 @@ function teclaNoCampo(evento) {
   }
 }
 
+addEventListener('resize', () => { if (painel) ajustarPergunta(); });
+
 addEventListener('keydown', evento => {
   if (!painel?.dialogo.open || evento.altKey || evento.ctrlKey || evento.metaKey) return;
   if (evento.target === painel.campo) return teclaNoCampo(evento);
@@ -391,16 +414,25 @@ addEventListener('keydown', evento => {
 
 // `servidor` é a origem que o visualizador aceitou. `recusado` é o &servidor= que ele não aceitou: o painel só
 // avisa, sem pedir nada a servidor nenhum. `chaveIgnorada` diz que o endereço trazia &chave=, de um link antigo.
-export async function abrir({ deck, pagina, servidor, recusado = null, chaveIgnorada = false }) {
+// `pergunta` é o texto marcado no slide, ou nada; só entra no painel por textContent. Com ela, o atributo
+// data-pergunta divide a tela (painel.css).
+function mostrarPergunta(pergunta) {
+  painel.pergunta.textContent = pergunta ?? '';
+  painel.pergunta.hidden = !pergunta;
+  painel.dialogo.toggleAttribute('data-pergunta', Boolean(pergunta));
+}
+
+export async function abrir({ deck, pagina, pergunta = null, servidor, recusado = null, chaveIgnorada = false }) {
   await montar();
   if (painel.dialogo.open) return;
   parar();
   estado = null;
   painel.titulo.textContent = 'Votação da turma';
-  modo('aviso');
-  avisar('');
+  mostrarPergunta(pergunta);
   painel.dialogo.showModal();
   painel.dialogo.focus();
+  modo('aviso');
+  avisar('');
   if (recusado) return avisar(`O servidor ${recusado} não é aceito pelo visualizador. Abra de novo com o endereço sem &servidor=.`, true);
   estado = { origem: servidor, chave: chaveGuardada(servidor), deck, pagina, codigo: null, revelado: false };
   const ignorada = chaveIgnorada ? 'A chave que veio no endereço foi ignorada e tirada da barra: ela agora se digita no painel.' : '';

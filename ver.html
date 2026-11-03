@@ -43,7 +43,8 @@ html, body { margin: 0; height: 100%; background: var(--fundo); color: var(--tex
 // comum, com seção, título, régua e logo do PDF, e a animação ocupa só a área de conteúdo, pedida no
 // modo embutido (?embutido no src do iframe), em que ela esconde título, controles e narração.
 // Exemplo: ver.html?deck=aula-llm.pdf&moldura=slide#1
-// A tecla V abre a votação da turma na página atual (ver "Votação da turma", abaixo).
+// A tecla V abre a votação da turma na página atual, com a pergunta marcada nela, se houver (ver "Votação da turma",
+// abaixo).
 import * as pdfjs from "./pdfjs/pdf.min.mjs";
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("./pdfjs/pdf.worker.min.mjs", location.href).href;
 
@@ -61,6 +62,15 @@ if (!arquivo || !baseDoDeck || !dentroDoSite(baseDoDeck)) { location.replace("./
 // A animação mora ao lado do PDF, e o link gravado no PDF é relativo a ele.
 // O fragmento opcional (#cenario) diz em que cenário a animação abre.
 const ANIMACAO = /^(?![a-z]+:)(?:\.\/)?[^/?#]*animacao-[^/?#]+\.html(?:#[\w-]+)?$/i;
+// A pergunta da votação, marcada no deck por `#pergunta("…")` do template de slides: um link invisível com este
+// prefixo e o texto em percent-encoding. Não é endereço para abrir: o visualizador só lê o texto e o passa ao painel.
+const PERGUNTA = "votacao:pergunta?";
+function perguntaDaPagina(anotacoes) {
+  const marca = anotacoes.find((a) => a.subtype === "Link" && (a.unsafeUrl || "").startsWith(PERGUNTA));
+  if (!marca) return null;
+  try { return decodeURIComponent(marca.unsafeUrl.slice(PERGUNTA.length)).trim() || null; }
+  catch { return null; } // percent-encoding quebrado: o painel abre só com o QR, como sem marca
+}
 $("baixar").href = baseDoDeck.href;
 // moldura=cheia: a animação ocupa a página inteira, como sem o parâmetro, mas é pedida no modo cheio
 // (?embutido=cheio), em que ela esconde só a barra de controles; avançar, voltar e a contagem ficam
@@ -98,7 +108,7 @@ async function ler(n) {
   // navegador trata como barra, e um PDF não pode pôr no quadro uma página de fora deste site.
   const alvo = link ? new URL(link.unsafeUrl || link.url, baseDoDeck) : null;
   const animacao = alvo && dentroDoSite(alvo) ? alvo.href : null;
-  return (paginas[n] = {pagina, animacao, texto});
+  return (paginas[n] = {pagina, animacao, texto, pergunta: perguntaDaPagina(anotacoes)});
 }
 
 function medida(pagina) {
@@ -248,7 +258,7 @@ async function abrirVotacao() {
   Object.assign(avisosDoEndereco, {recusado: null, chaveIgnorada: false});
   try {
     const {abrir} = await import("./votacao/painel.js");
-    await abrir({deck: arquivo, pagina: atual, servidor: servidorDaAba(), ...avisos});
+    await abrir({deck: arquivo, pagina: atual, pergunta: paginas[atual]?.pergunta, servidor: servidorDaAba(), ...avisos});
   } catch (erro) { console.error("Votação:", erro); }
 }
 lerParametrosDaVotacao();
