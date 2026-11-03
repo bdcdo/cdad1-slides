@@ -115,7 +115,7 @@
 .votacao .votacao-principal:hover { background: var(--v-acao-hover); border-color: var(--v-acao-hover); }
 .votacao button:focus-visible, .votacao-chave input:focus-visible { outline: 3px solid var(--v-acao); outline-offset: 2px; }
 
-/* Campo da chave do professor, no lugar do QR enquanto a aba não tem a chave. */
+/* Campo da chave do professor, no lugar do QR enquanto o navegador não tem a chave. */
 .votacao-chave { display: grid; gap: 8px; max-width: 40rem; }
 .votacao-chave label { font-size: clamp(18px, 2.6dvh, 28px); font-weight: 600; }
 .votacao-chave-linha { display: flex; flex-wrap: wrap; gap: 12px; }

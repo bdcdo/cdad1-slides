@@ -7,8 +7,17 @@
 //
 // A chave do professor é digitada no próprio painel, num campo de senha, e nunca passa pelo endereço da página,
 // que vai para o histórico do navegador e para o registro de acesso do site. Aceita pelo servidor, ela fica no
-// sessionStorage desta aba, presa à origem do servidor com que foi aceita: outra origem pede a chave de novo, e
-// ela não vai para servidor nenhum além daquele. Chave recusada (403) sai da aba, e o painel volta a pedir.
+// localStorage deste navegador, num mapa da origem do servidor para a chave: outra aba e a aula seguinte abrem a
+// votação sem pedir a chave, e a chave de uma origem não sobrescreve a de outra (a do servidor local de teste fica
+// ao lado da do servidor de produção). A chave só vai ao servidor com que foi aceita; outra origem pede a sua.
+// Só a chave digitada no campo se grava, quando abre a rodada: Nova rodada, ou a abertura com a chave que já veio
+// do mapa, não grava, para que uma aba aberta não devolva ao mapa a chave que outra aba esqueceu. Chave recusada
+// (403) sai do mapa só se for a que está guardada para aquela origem: a consulta atrasada de uma aba, ainda com a
+// chave antiga, não apaga a chave nova que outra aba gravou. Em todo 403, o painel da aba volta a pedir.
+//
+// Risco aceito: o localStorage é da origem do site, e qualquer página servida dessa origem pode ler a chave,
+// inclusive outro site publicado no mesmo domínio. Por isso o painel tem o botão Esquecer chave, que apaga a chave
+// do servidor em uso neste navegador, para quando a máquina não for só do professor.
 //
 // A contagem é uma consulta a cada 2 s, e não um canal aberto pelo servidor (SSE): o servidor atende cada conexão
 // com uma thread, e a consulta custa uma requisição curta, que também mantém a máquina do servidor acordada
@@ -18,7 +27,7 @@ import { encode } from '../uqr/uqr.mjs';
 const INTERVALO_MS = 2000;
 const TEMPO_LIMITE_MS = 8000;
 const SVG = 'http://www.w3.org/2000/svg';
-const CHAVE_DA_ABA = 'votacao:chave';
+const CHAVES_DO_NAVEGADOR = 'votacao:chaves';
 // O servidor gera códigos de 4 caracteres de letras maiúsculas e algarismos (ALFABETO, no server.py). O código vai
 // para o QR e para o endereço projetado; fora deste formato, a resposta não é usada.
 const CODIGO_VALIDO = /^[A-Z0-9]{2,12}$/;
@@ -41,6 +50,7 @@ const MOLDE = `
     <div class="votacao-acoes">
       <button type="button" class="votacao-principal" data-acao="revelar" hidden>Revelar respostas (R)</button>
       <button type="button" data-acao="nova" hidden>Nova rodada</button>
+      <button type="button" data-acao="esquecer" hidden>Esquecer chave</button>
       <button type="button" data-acao="fechar">Fechar (Esc)</button>
     </div>
   </div>
@@ -92,13 +102,14 @@ async function montarDeVez() {
     contagem: achar('.votacao-contagem'), numero: achar('.votacao-numero'), unidade: achar('.votacao-unidade'),
     estado: achar('.votacao-estado'), revelar: achar('[data-acao="revelar"]'), nova: achar('[data-acao="nova"]'),
     respostas: achar('.votacao-respostas'), grupos: achar('.votacao-grupos'), vazio: achar('.votacao-vazio'),
-    chave: achar('.votacao-chave'), campo: achar('#votacao-chave-campo'),
+    chave: achar('.votacao-chave'), campo: achar('#votacao-chave-campo'), esquecer: achar('[data-acao="esquecer"]'),
   };
   // O campo não fica num <form>: não há envio que mude o endereço da página, e Enter no campo entra pela escuta de
   // teclas, mais abaixo.
   achar('[data-acao="entrar"]').addEventListener('click', entrar);
   painel.revelar.addEventListener('click', alternarRevelacao);
   painel.nova.addEventListener('click', () => abrirRodada(true));
+  painel.esquecer.addEventListener('click', esquecerChave);
   achar('[data-acao="fechar"]').addEventListener('click', () => dialogo.close());
   // Esc fecha o diálogo pelo próprio navegador; o evento close cobre o Esc e o botão.
   dialogo.addEventListener('close', () => {
@@ -110,21 +121,32 @@ async function montarDeVez() {
 // Uma montagem só, mesmo que a tecla seja apertada duas vezes antes de o estilo chegar.
 const montar = () => (montagem ??= montarDeVez());
 
-// A chave guardada para esta origem, ou null. Aba sem armazenamento: a chave é pedida a cada abertura.
-function chaveGuardada(origem) {
+// O mapa das chaves aceitas, da origem do servidor para a chave. Navegador sem armazenamento, ou valor que não é um
+// mapa: mapa vazio, e a chave é pedida a cada abertura.
+function chavesGuardadas() {
   try {
-    const par = JSON.parse(sessionStorage.getItem(CHAVE_DA_ABA));
-    return par?.servidor === origem && typeof par.chave === 'string' ? par.chave : null;
+    const mapa = JSON.parse(localStorage.getItem(CHAVES_DO_NAVEGADOR));
+    return mapa && typeof mapa === 'object' && !Array.isArray(mapa) ? mapa : {};
   } catch {
-    return null;
+    return {};
   }
 }
 
+// A chave guardada para esta origem, ou null.
+function chaveGuardada(origem) {
+  const mapa = chavesGuardadas();
+  return typeof mapa[origem] === 'string' && mapa[origem] ? mapa[origem] : null;
+}
+
+// Grava a chave de uma origem, ou a apaga quando `chave` é null, sem mexer nas chaves das outras origens.
 function guardarChave(origem, chave) {
+  const mapa = chavesGuardadas();
+  if (chave) mapa[origem] = chave;
+  else delete mapa[origem];
   try {
-    if (chave) sessionStorage.setItem(CHAVE_DA_ABA, JSON.stringify({ servidor: origem, chave }));
-    else sessionStorage.removeItem(CHAVE_DA_ABA);
-  } catch { /* aba sem armazenamento: nada a guardar */ }
+    if (Object.keys(mapa).length) localStorage.setItem(CHAVES_DO_NAVEGADOR, JSON.stringify(mapa));
+    else localStorage.removeItem(CHAVES_DO_NAVEGADOR);
+  } catch { /* navegador sem armazenamento: nada a guardar */ }
 }
 
 function avisar(texto, erro = false) {
@@ -141,6 +163,8 @@ function modo(nome) {
   painel.contagem.hidden = !comRodada;
   painel.revelar.hidden = !comRodada;
   painel.nova.hidden = !comRodada;
+  // Fora do campo, a chave em uso já foi aceita ou veio guardada: esquecê-la vale também com o servidor fora do ar.
+  painel.esquecer.hidden = nome === 'chave' || !estado?.chave;
   painel.respostas.hidden = nome !== 'revelado';
   painel.revelar.textContent = nome === 'revelado' ? 'Esconder respostas (R)' : 'Revelar respostas (R)';
 }
@@ -278,23 +302,39 @@ function pedirChave(texto, erro = false) {
   painel.campo.focus();
 }
 
-function recusarChave() {
+// Interrompe a consulta, tira a chave da aba e volta ao campo. O mapa do navegador fica a cargo de quem chama.
+function largarChave(texto, erro) {
   parar();
-  guardarChave(null);
   estado.chave = null;
   estado.codigo = null;
-  pedirChave('O servidor recusou a chave do professor. Digite de novo.', true);
+  pedirChave(texto, erro);
 }
 
-function entrar() {
+// Apaga do mapa só a chave que levou o 403 (as das outras origens ficam). Se outra aba já gravou uma chave nova
+// para esta origem, ela fica.
+function recusarChave() {
+  if (chaveGuardada(estado.origem) === estado.chave) guardarChave(estado.origem, null);
+  largarChave('O servidor recusou a chave do professor. Digite de novo.', true);
+}
+
+// Apaga a chave da origem em uso sem conferir qual é: o professor pediu que este navegador não a guarde.
+function esquecerChave() {
+  guardarChave(estado.origem, null);
+  largarChave('Chave esquecida neste navegador. Digite a chave para abrir a votação.', false);
+}
+
+async function entrar() {
   const chave = painel.campo.value.trim();
-  // A chave sai do campo assim que lida: só a aba guarda, e só depois de aceita.
+  // A chave sai do campo assim que lida: só o navegador guarda, e só depois de aceita.
   painel.campo.value = '';
   if (!chave) return avisar('Digite a chave do professor.', true);
   estado.chave = chave;
-  return abrirRodada(false);
+  // Só a chave digitada que abriu uma rodada fica guardada: a digitada errado, ou que não chegou ao servidor, não.
+  // Quem abre a rodada com a chave que já veio do mapa (a abertura do painel, Nova rodada) não grava.
+  if (await abrirRodada(false)) guardarChave(estado.origem, chave);
 }
 
+// Devolve true quando a rodada abriu e a consulta começou.
 async function abrirRodada(nova) {
   parar();
   const minha = geracao;
@@ -310,10 +350,9 @@ async function abrirRodada(nova) {
   if (resposta.status === 403) return recusarChave();
   if (!resposta.ok) return avisar(mensagemDeErro(resposta), true);
   if (!mostrarRodada(resposta.dado)) return avisar('O servidor da votação respondeu com um código de rodada inválido.', true);
-  // Só a chave que abriu uma rodada fica guardada: a digitada errado, ou que não chegou ao servidor, não.
-  guardarChave(estado.origem, estado.chave);
   avisar(nova ? 'Rodada nova aberta. As respostas anteriores ficaram de fora.' : '');
   agendar(minha);
+  return true;
 }
 
 function alternarRevelacao() {
@@ -366,6 +405,8 @@ export async function abrir({ deck, pagina, servidor, recusado = null, chaveIgno
   estado = { origem: servidor, chave: chaveGuardada(servidor), deck, pagina, codigo: null, revelado: false };
   const ignorada = chaveIgnorada ? 'A chave que veio no endereço foi ignorada e tirada da barra: ela agora se digita no painel.' : '';
   if (!estado.chave) return pedirChave(ignorada, chaveIgnorada);
+  // De novo, agora com a chave guardada em estado: o botão Esquecer chave aparece antes da resposta do servidor.
+  modo('aviso');
   await abrirRodada(false);
   if (ignorada && estado.codigo) avisar(ignorada);
 }
