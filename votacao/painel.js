@@ -1,6 +1,16 @@
 // Painel de votação do visualizador de slides. Abre sobre a página atual, com o QR code para a turma responder pelo
-// celular, a contagem ao vivo e, quando o professor pede, as respostas agrupadas em barras. Se a página tem pergunta
+// celular, a contagem ao vivo e, quando o professor pede, as respostas, uma por cartão. Se a página tem pergunta
 // marcada no deck, a tela se divide ao meio: a pergunta em letra grande numa metade, o QR e a contagem na outra.
+//
+// A resposta é texto livre, e numa pergunta aberta quase todas são diferentes: com as respostas à mostra, a tela é
+// delas, na maior letra em que todas cabem, e a contagem fica pequena no canto. Respostas iguais (sem diferença entre
+// maiúsculas e minúsculas) viram um cartão só, com o número escrito.
+//
+// Fechar o painel não fecha a rodada: ela continua no servidor, recebendo respostas, e V de novo no mesmo slide a
+// reabre (o servidor guarda a rodada de cada slide). V noutro slide abre a rodada daquele slide. Se esse slide não tem
+// pergunta marcada, a rodada dele está vazia e a aba viu respostas noutro slide do mesmo deck, o V caiu no slide errado,
+// e o painel diz em que slide as respostas estão. No slide com pergunta marcada, a rodada vazia é a da pergunta nova, e
+// o painel não diz nada.
 //
 // O visualizador (ver.html) importa este módulo só quando a tecla V é usada e passa o deck, a página, a pergunta
 // lida do PDF (ou nada) e a origem do servidor, já conferida pela regra de lá (origemAceita): este módulo não lê a URL nem revalida o servidor. O
@@ -31,6 +41,12 @@ const SVG = 'http://www.w3.org/2000/svg';
 // Tamanho da letra da pergunta, em fração da altura da janela: começa no maior e desce até a pergunta caber na
 // metade dela. Abaixo do menor, a pergunta fica no menor e corta, em vez de virar letra que o fundo da sala não lê.
 const LETRA_DA_PERGUNTA = { maior: 0.09, menor: 0.04, passo: 0.005 };
+// Tamanho da letra das respostas, também em fração da altura da janela: começa no maior e desce até todas caberem.
+// O menor é o piso de corpo de texto dos slides do curso, 20 pt numa página de 540 pt de altura; abaixo dele, as
+// respostas rolam (setas, Page Down e espaço) em vez de encolher.
+const LETRA_DAS_RESPOSTAS = { maior: 0.075, menor: 20 / 540, passo: 0.004 };
+// A última página de cada deck em que esta aba viu respostas, para avisar quando V abre a rodada vazia de outro slide.
+const COM_RESPOSTAS_NA_ABA = 'votacao:com-respostas';
 const CHAVES_DO_NAVEGADOR = 'votacao:chaves';
 // O servidor gera códigos de 4 caracteres de letras maiúsculas e algarismos (ALFABETO, no server.py). O código vai
 // para o QR e para o endereço projetado; fora deste formato, a resposta não é usada.
@@ -74,6 +90,9 @@ let estado = null;
 // consulta lenta de antes do fechamento, voltaria a escrever no painel.
 let geracao = 0;
 let relogio = null;
+// Destino da rolagem suave em curso. Duas teclas seguidas somam a partir dele, e não da posição no meio da animação,
+// que o Chromium usaria e que faria a segunda tecla andar menos que a primeira.
+let alvoDaRolagem = null;
 
 function carregarEstilo() {
   const link = Object.assign(document.createElement('link'), {
@@ -116,6 +135,7 @@ async function montarDeVez() {
   painel.revelar.addEventListener('click', alternarRevelacao);
   painel.nova.addEventListener('click', () => abrirRodada(true));
   painel.esquecer.addEventListener('click', esquecerChave);
+  painel.respostas.addEventListener('scrollend', () => { alvoDaRolagem = null; });
   achar('[data-acao="fechar"]').addEventListener('click', () => dialogo.close());
   // Esc fecha o diálogo pelo próprio navegador; o evento close cobre o Esc e o botão.
   dialogo.addEventListener('close', () => {
@@ -178,10 +198,11 @@ function modo(nome) {
   if (nome === 'revelado') painel.respostas.prepend(painel.pergunta);
   else painel.corpo.prepend(painel.pergunta);
   ajustarPergunta();
+  ajustarRespostas();
 }
 
 // A maior letra em que a pergunta cabe inteira na sua metade da tela, medida na tela, porque o espaço depende do
-// projetor e do tamanho do texto. Com as respostas à mostra, a pergunta é o título das barras, com o tamanho da folha
+// projetor e do tamanho do texto. Com as respostas à mostra, a pergunta é o título dos cartões, com o tamanho da folha
 // de estilo.
 function ajustarPergunta() {
   const { pergunta, dialogo } = painel;
@@ -192,6 +213,43 @@ function ajustarPergunta() {
     pergunta.style.fontSize = `${Math.round(fracao * innerHeight)}px`;
     if (pergunta.scrollHeight <= pergunta.clientHeight) return;
   }
+}
+
+// A maior letra em que todas as respostas cabem na seção, sem passar do piso. Medida na tela, como a da pergunta.
+function ajustarRespostas() {
+  const { respostas, dialogo } = painel;
+  if (!dialogo.open || dialogo.dataset.modo !== 'revelado') return;
+  const { maior, menor, passo } = LETRA_DAS_RESPOSTAS;
+  for (let fracao = maior; fracao >= menor - passo / 2; fracao -= passo) {
+    respostas.style.setProperty('--v-letra-resposta', `${Math.round(fracao * innerHeight)}px`);
+    if (respostas.scrollHeight <= respostas.clientHeight) return;
+  }
+  respostas.style.setProperty('--v-letra-resposta', `${Math.ceil(menor * innerHeight)}px`);
+}
+
+function paginaComRespostas(deck) {
+  try {
+    return JSON.parse(sessionStorage.getItem(COM_RESPOSTAS_NA_ABA))?.[deck] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function lembrarPaginaComRespostas(deck, pagina) {
+  try {
+    const mapa = JSON.parse(sessionStorage.getItem(COM_RESPOSTAS_NA_ABA)) ?? {};
+    if (mapa[deck] === pagina) return;
+    mapa[deck] = pagina;
+    sessionStorage.setItem(COM_RESPOSTAS_NA_ABA, JSON.stringify(mapa));
+  } catch { /* aba sem armazenamento: o aviso de outro slide não aparece */ }
+}
+
+// O aviso que fica no painel enquanto a consulta segue sem erro: a rodada vazia de um slide sem pergunta marcada,
+// quando as respostas estão noutro slide.
+function avisoDaRodada(total) {
+  const outra = paginaComRespostas(estado.deck);
+  if (estado.comPergunta || total > 0 || !Number.isInteger(outra) || outra === estado.pagina) return '';
+  return `Esta é a rodada do slide ${estado.pagina}, ainda vazia. As respostas que a turma já mandou estão na rodada do slide ${outra}: feche, volte ao slide ${outra} e aperte V.`;
 }
 
 function parar() {
@@ -254,29 +312,35 @@ function desenharQr(texto) {
 function mostrarContagem(total) {
   painel.numero.textContent = String(total);
   painel.unidade.textContent = total === 1 ? 'resposta' : 'respostas';
+  if (total > 0) lembrarPaginaComRespostas(estado.deck, estado.pagina);
 }
 
-// Cada grupo é uma linha com o texto, a barra e o número escrito ao lado: o tamanho da barra repete o número, e
-// nenhuma informação fica só na cor. A barra mais longa é a do maior grupo, e as outras são proporcionais a ela.
-function itemDoGrupo({ texto, contagem }, maior) {
+// Cada grupo é um cartão com o texto. Respostas repetidas levam o número escrito, "×3", e vêm primeiro, na ordem do
+// servidor (do maior grupo para o menor); a resposta única não leva número, que numa pergunta aberta seria um "1" em
+// cada cartão.
+function itemDoGrupo({ texto, contagem }) {
   const item = document.createElement('li');
   const rotulo = Object.assign(document.createElement('span'), { className: 'votacao-texto', textContent: texto });
-  const medida = Object.assign(document.createElement('span'), { className: 'votacao-medida' });
-  const barra = Object.assign(document.createElement('span'), { className: 'votacao-barra' });
-  barra.style.setProperty('--fracao', String(contagem / maior));
-  const numero = Object.assign(document.createElement('span'), { className: 'votacao-quantos', textContent: String(contagem) });
-  const leitor = Object.assign(document.createElement('span'), {
-    className: 'votacao-so-leitor', textContent: contagem === 1 ? ' resposta' : ' respostas',
-  });
-  medida.append(barra, numero, leitor);
-  item.append(rotulo, medida);
+  item.append(rotulo);
+  if (contagem > 1) {
+    const numero = Object.assign(document.createElement('span'), { className: 'votacao-quantos', textContent: `×${contagem}` });
+    numero.setAttribute('aria-hidden', 'true');
+    const leitor = Object.assign(document.createElement('span'), { className: 'votacao-so-leitor', textContent: `, ${contagem} respostas iguais` });
+    item.append(numero, leitor);
+  }
   return item;
 }
 
+// A consulta chega a cada 2 s: só redesenha, e só reajusta a letra, quando as respostas mudaram, para a rolagem e o
+// tamanho da letra não pularem à toa.
+let gruposEmTela = '';
 function mostrarGrupos(grupos) {
-  const maior = Math.max(1, ...grupos.map(grupo => grupo.contagem));
-  painel.grupos.replaceChildren(...grupos.map(grupo => itemDoGrupo(grupo, maior)));
+  const chave = JSON.stringify(grupos);
+  if (chave === gruposEmTela) return;
+  gruposEmTela = chave;
+  painel.grupos.replaceChildren(...grupos.map(itemDoGrupo));
   painel.vazio.hidden = grupos.length > 0;
+  ajustarRespostas();
 }
 
 function agendar(minha) {
@@ -298,7 +362,7 @@ async function consultar(minha) {
   if (resposta.status === 404) return avisar(mensagemDeErro(resposta), true);
   if (!resposta.ok) avisar(mensagemDeErro(resposta), true);
   else {
-    avisar('');
+    avisar(avisoDaRodada(resposta.dado.total));
     mostrarContagem(resposta.dado.total);
     if (resposta.dado.grupos) mostrarGrupos(resposta.dado.grupos);
   }
@@ -375,7 +439,7 @@ async function abrirRodada(nova) {
   if (resposta.status === 403) return recusarChave();
   if (!resposta.ok) return avisar(mensagemDeErro(resposta), true);
   if (!mostrarRodada(resposta.dado)) return avisar('O servidor da votação respondeu com um código de rodada inválido.', true);
-  avisar(nova ? 'Rodada nova aberta. As respostas anteriores ficaram de fora.' : '');
+  avisar(nova ? 'Rodada nova aberta. As respostas anteriores ficaram de fora.' : avisoDaRodada(resposta.dado.total));
   agendar(minha);
   return true;
 }
@@ -386,11 +450,14 @@ function alternarRevelacao() {
   estado.revelado = !estado.revelado;
   modo(estado.revelado ? 'revelado' : 'coleta');
   if (estado.revelado) mostrarGrupos([]);
+  painel.respostas.scrollTop = 0;
+  alvoDaRolagem = null;
   consultar(geracao);
 }
 
 // Com o painel aberto, as teclas são dele: a seta e o espaço não mudam o slide que está por baixo, e o R revela em
-// vez de reiniciar a animação. A escuta é na fase de captura, que roda antes da escuta do visualizador, e a
+// vez de reiniciar a animação. Com as respostas à mostra, as setas, Page Up e Page Down e o espaço (fora de um botão)
+// rolam as respostas, que é o que o passador de slides manda; Home e End vão ao começo e ao fim delas. A escuta é na fase de captura, que roda antes da escuta do visualizador, e a
 // interrompe. Tab, Enter e Esc seguem o comportamento do próprio diálogo, que não depende de escuta nenhuma; F
 // continua com o visualizador, para a tela cheia funcionar com o painel aberto. No campo da chave, toda tecla é
 // do campo, inclusive R e F, e Enter entra.
@@ -402,7 +469,34 @@ function teclaNoCampo(evento) {
   }
 }
 
-addEventListener('resize', () => { if (painel) ajustarPergunta(); });
+const ROLAR_PARA_BAIXO = ['ArrowDown', 'ArrowRight', 'PageDown', ' '];
+const ROLAR_PARA_CIMA = ['ArrowUp', 'ArrowLeft', 'PageUp'];
+// O ponto da seção a que a tecla leva, ou null se a tecla não rola. A seta e as teclas de página andam 85% da altura
+// visível, para a última linha de uma tela continuar à vista no alto da seguinte.
+function destinoDaRolagem(tecla, { scrollTop, scrollHeight, clientHeight }) {
+  const fim = scrollHeight - clientHeight;
+  if (tecla === 'Home') return 0;
+  if (tecla === 'End') return fim;
+  const sentido = ROLAR_PARA_BAIXO.includes(tecla) ? 1 : ROLAR_PARA_CIMA.includes(tecla) ? -1 : 0;
+  if (!sentido) return null;
+  return Math.min(fim, Math.max(0, (alvoDaRolagem ?? scrollTop) + sentido * 0.85 * clientHeight));
+}
+
+function rolarRespostas(evento) {
+  if (evento.key === ' ' && evento.target.closest?.('button')) return;
+  const destino = destinoDaRolagem(evento.key, painel.respostas);
+  if (destino === null) return;
+  evento.preventDefault();
+  alvoDaRolagem = destino;
+  const suave = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  painel.respostas.scrollTo({ top: destino, behavior: suave ? 'smooth' : 'auto' });
+}
+
+addEventListener('resize', () => {
+  if (!painel) return;
+  ajustarPergunta();
+  ajustarRespostas();
+});
 
 addEventListener('keydown', evento => {
   if (!painel?.dialogo.open || evento.altKey || evento.ctrlKey || evento.metaKey) return;
@@ -412,7 +506,7 @@ addEventListener('keydown', evento => {
   if (tecla === 'r') {
     evento.preventDefault();
     alternarRevelacao();
-  }
+  } else if (painel.dialogo.dataset.modo === 'revelado') rolarRespostas(evento);
   evento.stopImmediatePropagation();
 }, true);
 
@@ -438,7 +532,7 @@ export async function abrir({ deck, pagina, pergunta = null, servidor, recusado 
   modo('aviso');
   avisar('');
   if (recusado) return avisar(`O servidor ${recusado} não é aceito pelo visualizador. Abra de novo com o endereço sem &servidor=.`, true);
-  estado = { origem: servidor, chave: chaveGuardada(servidor), deck, pagina, codigo: null, revelado: false };
+  estado = { origem: servidor, chave: chaveGuardada(servidor), deck, pagina, comPergunta: Boolean(pergunta), codigo: null, revelado: false };
   const ignorada = chaveIgnorada ? 'A chave que veio no endereço foi ignorada e tirada da barra: ela agora se digita no painel.' : '';
   if (!estado.chave) return pedirChave(ignorada, chaveIgnorada);
   // De novo, agora com a chave guardada em estado: o botão Esquecer chave aparece antes da resposta do servidor.

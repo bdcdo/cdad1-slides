@@ -5,7 +5,8 @@
 
    Contrastes conferidos por cálculo (o teste de navegador recalcula sobre a página renderizada): --v-texto,
    --v-texto-suave e --v-erro passam de 4,5:1 sobre --v-superficie; --v-sobre-acao passa de 4,5:1 sobre --v-acao;
-   --v-acao (barra, borda do botão principal, anel de foco) e --v-borda passam de 3:1 sobre --v-superficie. */
+   --v-acao (número de respostas iguais, borda do botão principal, anel de foco) passa de 4,5:1 sobre --v-superficie, e
+   --v-borda (cartão das respostas, borda do botão) passa de 3:1. */
 .votacao {
   --v-superficie: #ffffff;
   --v-texto: #1b2027;
@@ -58,10 +59,10 @@
   align-items: center;
 }
 .votacao:is([data-modo="aviso"], [data-modo="chave"]) .votacao-corpo { grid-template-columns: minmax(0, 1fr); grid-template-areas: "lado"; }
-/* Respostas à mostra: as barras ficam com a maior parte da tela, e o QR encolhe para o canto, ainda legível para
-   quem chegar atrasado. */
+/* Respostas à mostra: os cartões das respostas ficam com a maior parte da tela, e o QR encolhe para o canto, ainda
+   legível para quem chegar atrasado. */
 .votacao[data-modo="revelado"] {
-  --v-qr: min(30dvh, 22vw);
+  --v-qr: min(26dvh, 20vw);
 }
 /* A coluna do lado é mais larga que o QR quando ele encolhe, para o rótulo do botão caber numa linha. */
 .votacao[data-modo="revelado"] .votacao-corpo {
@@ -121,7 +122,7 @@
   overflow-wrap: break-word;
   text-wrap: pretty;
 }
-/* Respostas à mostra: a pergunta vai para dentro da seção das respostas (painel.js), como título das barras, e rola
+/* Respostas à mostra: a pergunta vai para dentro da seção das respostas (painel.js), como título dos cartões, e rola
    com elas. A grade fica a mesma de sem pergunta, e a coluna do lado não se mexe com pergunta longa. */
 .votacao-respostas .votacao-pergunta {
   display: block;
@@ -156,8 +157,7 @@
 
 .votacao[data-modo="revelado"] .votacao-titulo { font-size: clamp(18px, 2.8dvh, 32px); }
 .votacao[data-modo="revelado"] .votacao-endereco { font-size: clamp(16px, 2.4dvh, 28px); }
-.votacao[data-modo="revelado"] .votacao-numero { font-size: clamp(36px, 7dvh, 84px); }
-.votacao[data-modo="revelado"] .votacao-unidade { font-size: clamp(16px, 2.4dvh, 28px); }
+.votacao[data-modo="revelado"] :is(.votacao-numero, .votacao-unidade) { font-size: clamp(16px, 3dvh, 32px); }
 
 .votacao-acoes { display: flex; flex-wrap: wrap; gap: 12px; }
 .votacao button {
@@ -190,31 +190,45 @@
   border-radius: var(--v-raio-botao);
 }
 
-.votacao-respostas { grid-area: respostas; height: 100%; overflow-y: auto; min-width: 0; }
-.votacao-grupos { margin: 0; padding: 0; list-style: none; display: grid; gap: clamp(12px, 2.2dvh, 24px); }
-.votacao-grupos li {
+/* Cartões das respostas. A letra vem de --v-letra-resposta, que o painel.js põe na maior medida em que todos cabem,
+   sem descer do piso de corpo dos slides; a largura mínima do cartão acompanha a letra, para a linha não ficar curta
+   demais para ler. */
+.votacao-respostas {
+  --v-letra-resposta: clamp(20px, 3.8dvh, 48px);
+  grid-area: respostas;
+  height: 100%;
+  overflow-y: auto;
+  min-width: 0;
+  scroll-padding-top: 8px;
+}
+.votacao-grupos {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   display: grid;
-  grid-template-columns: minmax(6ch, 38%) minmax(0, 1fr);
-  gap: 16px;
-  align-items: center;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14em), 1fr));
+  gap: 0.5em;
+  align-items: start;
+  font-size: var(--v-letra-resposta);
+}
+.votacao-grupos li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5em;
+  padding: 0.35em 0.55em;
+  border: 2px solid var(--v-borda);
+  border-radius: var(--v-raio-botao);
 }
 .votacao-texto {
-  font: 600 clamp(20px, 3.4dvh, 40px)/1.25 var(--v-mono);
+  font-weight: 600;
+  line-height: 1.25;
   white-space: pre-line;
   overflow-wrap: anywhere;
+  min-width: 0;
 }
-.votacao-medida { display: flex; align-items: center; gap: 12px; min-width: 0; }
-/* A barra divide a linha com o número: 5ch ficam reservados para ele, e o maior grupo ocupa o resto. */
-.votacao-barra {
-  flex: none;
-  width: calc((100% - 5ch) * var(--fracao));
-  min-width: 4px;
-  height: clamp(20px, 3.6dvh, 44px);
-  background: var(--v-acao);
-  border-radius: 4px;
-}
-.votacao-quantos { font-size: clamp(20px, 3.4dvh, 40px); font-weight: 700; font-variant-numeric: tabular-nums; }
-.votacao-vazio { margin: 0; font-size: clamp(20px, 3.4dvh, 40px); color: var(--v-texto-suave); }
+.votacao-quantos { flex: none; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--v-acao); }
+.votacao-vazio { margin: 0; font-size: clamp(20px, 3.8dvh, 48px); color: var(--v-texto-suave); }
 .votacao-so-leitor {
   position: absolute;
   width: 1px;
