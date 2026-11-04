@@ -529,12 +529,13 @@ addEventListener('resize', () => {
   ajustarRespostas();
 });
 
-// V fecha, R revela ou esconde, e com as respostas à mostra as teclas do passador rolam.
+// O V repetido de uma tecla segurada não fecha: ele chegaria depois ao visualizador, que reabriria o painel, e o
+// painel piscaria enquanto a tecla estivesse apertada.
 function teclaNoPainel(evento) {
   const tecla = evento.key.toLowerCase();
   if (tecla === 'v') {
     evento.preventDefault();
-    painel.dialogo.close();
+    if (!evento.repeat) painel.dialogo.close();
   } else if (tecla === 'r') {
     evento.preventDefault();
     alternarRevelacao();
