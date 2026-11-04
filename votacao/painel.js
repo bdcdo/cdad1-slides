@@ -245,10 +245,11 @@ function lembrarPaginaComRespostas(deck, pagina) {
 }
 
 // O aviso que fica no painel enquanto a consulta segue sem erro: a rodada vazia de um slide sem pergunta marcada,
-// quando as respostas estão noutro slide.
+// quando as respostas estão noutro slide. A rodada que o professor abriu por Nova rodada é de propósito, e não leva o
+// aviso.
 function avisoDaRodada(total) {
   const outra = paginaComRespostas(estado.deck);
-  if (estado.comPergunta || total > 0 || !Number.isInteger(outra) || outra === estado.pagina) return '';
+  if (estado.comPergunta || estado.novaDeProposito || total > 0 || !Number.isInteger(outra) || outra === estado.pagina) return '';
   return `Esta é a rodada do slide ${estado.pagina}, ainda vazia. As respostas que a turma já mandou estão na rodada do slide ${outra}: feche, volte ao slide ${outra} e aperte V.`;
 }
 
@@ -426,6 +427,7 @@ async function entrar() {
 // Devolve true quando a rodada abriu e a consulta começou.
 async function abrirRodada(nova) {
   parar();
+  if (nova) estado.novaDeProposito = true;
   const minha = geracao;
   avisar(nova ? 'Abrindo uma rodada nova…' : 'Abrindo a votação…');
   let resposta;
