@@ -4,7 +4,8 @@
 //
 // A resposta é texto livre, e numa pergunta aberta quase todas são diferentes: com as respostas à mostra, a tela é
 // delas, na maior letra em que todas cabem, e a contagem fica pequena no canto. Respostas iguais (sem diferença entre
-// maiúsculas e minúsculas) viram um cartão só, com o número escrito.
+// maiúsculas e minúsculas) viram um cartão só, com o número escrito. A ordem é a do servidor na hora em que R revela
+// (do maior grupo para o menor); a resposta que chega depois entra no fim, para os cartões à vista não andarem.
 //
 // Fechar o painel não fecha a rodada: ela continua no servidor, recebendo respostas, e V de novo no mesmo slide a
 // reabre (o servidor guarda a rodada de cada slide). V noutro slide abre a rodada daquele slide. Se esse slide não tem
@@ -72,7 +73,7 @@ const MOLDE = `
       <button type="button" class="votacao-principal" data-acao="revelar" hidden>Revelar respostas (R)</button>
       <button type="button" data-acao="nova" hidden>Nova rodada</button>
       <button type="button" data-acao="esquecer" hidden>Esquecer chave</button>
-      <button type="button" data-acao="fechar">Fechar (Esc)</button>
+      <button type="button" data-acao="fechar">Fechar (V)</button>
     </div>
   </div>
   <section class="votacao-respostas" hidden aria-label="Respostas">
@@ -103,6 +104,13 @@ function carregarEstilo() {
   // assim mesmo: a contagem continua legível sem estilo.
   const pronto = new Promise(resolve => { link.onload = resolve; link.onerror = resolve; });
   document.head.append(link);
+  // A Inter chega depois do estilo, e o painel não espera por ela: enquanto ela não chega, o texto sai na fonte
+  // seguinte da lista. Quando chega, a letra da pergunta e a das respostas se medem de novo, porque a largura muda.
+  pronto.then(() => document.fonts.load('600 1em "Inter Votacao"')).then(() => {
+    if (!painel) return;
+    ajustarPergunta();
+    ajustarRespostas();
+  }).catch(() => { /* sem a Inter, vale a fonte seguinte da lista */ });
   return pronto;
 }
 
@@ -137,7 +145,7 @@ async function montarDeVez() {
   painel.esquecer.addEventListener('click', esquecerChave);
   painel.respostas.addEventListener('scrollend', () => { alvoDaRolagem = null; });
   achar('[data-acao="fechar"]').addEventListener('click', () => dialogo.close());
-  // Esc fecha o diálogo pelo próprio navegador; o evento close cobre o Esc e o botão.
+  // Esc fecha o diálogo pelo próprio navegador; o evento close cobre o Esc, o V e o botão.
   dialogo.addEventListener('close', () => {
     painel.campo.value = '';
     parar();
@@ -332,6 +340,24 @@ function itemDoGrupo({ texto, contagem }) {
   return item;
 }
 
+// A chave de um grupo, para reconhecê-lo de uma consulta para outra: o texto mostrado pode trocar de variante
+// ("Regex" vira "regex" quando a segunda forma passa a ser a mais enviada), e a chave não. É mais fina que a do
+// servidor (normalizar, no server.py), que usa casefold: dois grupos do servidor nunca caem na mesma chave daqui.
+const chaveDoGrupo = texto => texto.normalize('NFC').toLowerCase().split(/\s+/).filter(Boolean).join(' ');
+
+// A posição de cada grupo na tela desde que R revelou. O grupo novo entra no fim; os que já estavam não mudam de
+// lugar, nem quando ganham resposta, porque o servidor ordena em ordem alfabética entre contagens iguais, e a resposta
+// nova entraria no meio da lista que o professor está lendo.
+let ordemDaRevelacao = new Map();
+function naOrdemDaTela(grupos) {
+  for (const { texto } of grupos) {
+    const chave = chaveDoGrupo(texto);
+    if (!ordemDaRevelacao.has(chave)) ordemDaRevelacao.set(chave, ordemDaRevelacao.size);
+  }
+  const posicao = ({ texto }) => ordemDaRevelacao.get(chaveDoGrupo(texto));
+  return [...grupos].sort((a, b) => posicao(a) - posicao(b));
+}
+
 // A consulta chega a cada 2 s: só redesenha, e só reajusta a letra, quando as respostas mudaram, para a rolagem e o
 // tamanho da letra não pularem à toa.
 let gruposEmTela = '';
@@ -339,7 +365,7 @@ function mostrarGrupos(grupos) {
   const chave = JSON.stringify(grupos);
   if (chave === gruposEmTela) return;
   gruposEmTela = chave;
-  painel.grupos.replaceChildren(...grupos.map(itemDoGrupo));
+  painel.grupos.replaceChildren(...naOrdemDaTela(grupos).map(itemDoGrupo));
   painel.vazio.hidden = grupos.length > 0;
   ajustarRespostas();
 }
@@ -451,6 +477,8 @@ function alternarRevelacao() {
   parar();
   estado.revelado = !estado.revelado;
   modo(estado.revelado ? 'revelado' : 'coleta');
+  // Cada revelação começa da ordem do servidor.
+  ordemDaRevelacao = new Map();
   if (estado.revelado) mostrarGrupos([]);
   painel.respostas.scrollTop = 0;
   alvoDaRolagem = null;
@@ -458,7 +486,8 @@ function alternarRevelacao() {
 }
 
 // Com o painel aberto, as teclas são dele: a seta e o espaço não mudam o slide que está por baixo, e o R revela em
-// vez de reiniciar a animação. Com as respostas à mostra, as setas, Page Up e Page Down e o espaço (fora de um botão)
+// vez de reiniciar a animação. V fecha o painel, como Esc: em tela cheia, o Esc do navegador também sai da tela cheia,
+// e o V não. Com as respostas à mostra, as setas, Page Up e Page Down e o espaço (fora de um botão)
 // rolam as respostas, que é o que o passador de slides manda; Home e End vão ao começo e ao fim delas. A escuta é na fase de captura, que roda antes da escuta do visualizador, e a
 // interrompe. Tab, Enter e Esc seguem o comportamento do próprio diálogo, que não depende de escuta nenhuma; F
 // continua com o visualizador, para a tela cheia funcionar com o painel aberto. No campo da chave, toda tecla é
@@ -500,15 +529,23 @@ addEventListener('resize', () => {
   ajustarRespostas();
 });
 
-addEventListener('keydown', evento => {
-  if (!painel?.dialogo.open || evento.altKey || evento.ctrlKey || evento.metaKey) return;
-  if (evento.target === painel.campo) return teclaNoCampo(evento);
+// V fecha, R revela ou esconde, e com as respostas à mostra as teclas do passador rolam.
+function teclaNoPainel(evento) {
   const tecla = evento.key.toLowerCase();
-  if (tecla === 'f') return;
-  if (tecla === 'r') {
+  if (tecla === 'v') {
+    evento.preventDefault();
+    painel.dialogo.close();
+  } else if (tecla === 'r') {
     evento.preventDefault();
     alternarRevelacao();
   } else if (painel.dialogo.dataset.modo === 'revelado') rolarRespostas(evento);
+}
+
+addEventListener('keydown', evento => {
+  if (!painel?.dialogo.open || evento.altKey || evento.ctrlKey || evento.metaKey) return;
+  if (evento.target === painel.campo) return teclaNoCampo(evento);
+  if (evento.key.toLowerCase() === 'f') return;
+  teclaNoPainel(evento);
   evento.stopImmediatePropagation();
 }, true);
 
