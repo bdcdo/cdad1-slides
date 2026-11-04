@@ -12,7 +12,7 @@ Com `&moldura=cheia` no endereço, que é como a página inicial abre toda aula,
 
 ## Votação da turma
 
-Em slide de pergunta, a tecla V abre sobre a página atual um painel com um QR code: a turma responde pelo celular, com texto livre, e o painel mostra quantos já responderam. R revela as respostas, uma por cartão, e a tela passa a ser delas: a letra é a maior em que todas cabem, sem descer de 20 pt de slide, e abaixo disso as setas, Page Down e o espaço rolam os cartões, que é o que o passador de slides manda; Home e End vão ao começo e ao fim. Respostas iguais, sem diferença entre maiúsculas e minúsculas, viram um cartão só, com o número escrito (×3) e à frente das outras; a contagem total fica pequena, ao lado do QR. Esc fecha. Ninguém é identificado e nada fica gravado.
+Em slide de pergunta, a tecla V abre sobre a página atual um painel com um QR code: a turma responde pelo celular, com texto livre, e o painel mostra quantos já responderam. R revela as respostas, uma por cartão, e a tela passa a ser delas: a letra é a maior em que todas cabem, sem descer de 20 pt de slide, e abaixo disso as setas, Page Down e o espaço rolam os cartões, que é o que o passador de slides manda; Home e End vão ao começo e ao fim. Respostas iguais, sem diferença entre maiúsculas e minúsculas, viram um cartão só, com o número escrito (×3) e à frente das outras; a contagem total fica pequena, ao lado do QR. A ordem é a da hora em que R revela, e a resposta que chega depois entra no fim, para os cartões à vista não andarem; esconder e revelar de novo reordena. V fecha o painel sem sair da tela cheia; Esc também fecha, mas em tela cheia o navegador usa o mesmo Esc para sair dela. A letra do painel é a Inter, a do corpo dos slides, servida de `votacao/fontes/` (Inter 4.001, de The Inter Project Authors, sob a licença SIL Open Font License 1.1 em `votacao/fontes/OFL.txt`), porque a máquina que projeta pode não tê-la instalada. Ninguém é identificado e nada fica gravado.
 
 Fechar o painel não fecha a rodada: a turma continua respondendo pelo mesmo QR enquanto os slides seguem, inclusive em outra página. Voltar ao mesmo slide e apertar V reabre a mesma rodada, com as respostas acumuladas e escondidas até R; recarregar a aba não muda isso, e a rodada vale por duas horas no servidor. V noutro slide abre a rodada daquele slide. Se esse slide não tem pergunta marcada, a rodada dele está vazia e a aba já viu respostas noutro slide do mesmo deck, o painel diz em que slide elas estão; no slide com pergunta marcada, a rodada vazia é a da pergunta nova, sem aviso. Só Nova rodada começa outra do zero.
 
@@ -33,7 +33,7 @@ O JavaScript do painel passa pelo lint de `eslint.config.mjs`: `npx --yes eslint
 - `aulaNN/`: o PDF da aula e as animações que ele referencia.
 - Aula ainda não dada pode estar publicada sem aparecer na página inicial: abre pelo endereço direto e entra em `aulas.json` depois da aula.
 - `pdfjs/`: pdf.js 6.3.289, da Mozilla, sob a licença Apache 2.0 em `pdfjs/LICENSE`. Fica no repositório para o site não depender de CDN.
-- `votacao/`: o painel de votação da tecla V. `uqr/`: o gerador de QR que ele usa, também no repositório para não depender de CDN.
+- `votacao/`: o painel de votação da tecla V, com a fonte Inter em `votacao/fontes/`. `uqr/`: o gerador de QR que ele usa, também no repositório para não depender de CDN.
 
 ## Tribunal fictício
 

@@ -184,7 +184,7 @@ addEventListener("keydown", (e) => {
   else if (e.key === "Home") mostrar(1);
   else if (e.key === "End") mostrar(pdf.numPages);
   else if (e.key.toLowerCase() === "f") alternarTelaCheia();
-  else if (e.key === "v" || e.key === "V") abrirVotacao();
+  else if (e.key === "v" || e.key === "V") { if (!e.repeat) abrirVotacao(); } // a tecla segurada abre uma vez só
   else return;
   e.preventDefault();
 });

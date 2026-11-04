@@ -7,6 +7,15 @@
    --v-texto-suave e --v-erro passam de 4,5:1 sobre --v-superficie; --v-sobre-acao passa de 4,5:1 sobre --v-acao;
    --v-acao (número de respostas iguais, borda do botão principal, anel de foco) passa de 4,5:1 sobre --v-superficie, e
    --v-borda (cartão das respostas, borda do botão) passa de 3:1. */
+/* A letra do painel é a do corpo dos slides do curso, a Inter, servida daqui (votacao/fontes/, sob a licença OFL),
+   porque a máquina que projeta pode não tê-la instalada. É a fonte variável, com todos os pesos num arquivo só. */
+@font-face {
+  font-family: "Inter Votacao";
+  src: url("./fontes/Inter.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 .votacao {
   --v-superficie: #ffffff;
   --v-texto: #1b2027;
@@ -19,7 +28,7 @@
   --v-veu: rgb(16 24 40 / 0.6);
   --v-qr-escuro: #000000;
   --v-qr-claro: #ffffff;
-  --v-fonte: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --v-fonte: "Inter Votacao", Inter, Arial, Arimo, "Liberation Sans", sans-serif;
   --v-mono: ui-monospace, "SF Mono", "Cascadia Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
   --v-raio: 12px;
   --v-raio-botao: 8px;
