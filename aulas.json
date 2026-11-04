@@ -112,5 +112,11 @@
   "data": "sex 30/10",
   "titulo": "Uma análise do início ao fim: pandas, regex e modelo",
   "arquivo": "aula20/aula20.pdf"
+ },
+ {
+  "aula": "21",
+  "data": "ter 03/11",
+  "titulo": "Quem ganha as ações de canabidiol",
+  "arquivo": "aula21/aula21.pdf"
  }
 ]
