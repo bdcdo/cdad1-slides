@@ -42,6 +42,7 @@ html.embutido #titulo, html.embutido #narracao { display: none; }
 <div id="moldura">
   <div id="palco">
     <h1 id="titulo">Lei dos grandes números</h1>
+    <canvas id="tela" style="position:absolute;left:0;top:0;width:1280px;height:720px"></canvas>
     <svg id="grafico" viewBox="0 0 1280 720" width="1280" height="720" style="position:absolute;left:0;top:0"></svg>
     <div id="narracao" aria-live="polite"></div>
   </div>
@@ -107,54 +108,94 @@ function el(nome, attrs = {}, pai) { const n = document.createElementNS(NS, nome
 function txt(t, attrs, pai) { const n = el("text", attrs, pai); n.textContent = t; return n; }
 </script>
 <script>
-// Lei dos grandes números: a taxa de vitória de uma amostra sorteada de uma lista em que o
-// passageiro ganha 70%, conforme a amostra cresce. Três sorteios com semente fixa.
-const TAXA = 0.70, UNIVERSO = 0.60, MAX = 2000;
-const X0 = 150, X1 = 1040, Y0 = 520, Y1 = 150; // área do gráfico no palco
+// Lei dos grandes números. Cenário 1: três sorteios de uma lista em que o passageiro ganha 70%,
+// acompanhados conforme a amostra cresce. Cenário 2: mil sorteios da mesma lista de 15.975
+// decisões (11.183 vitórias), sem reposição, como se sorteia de verdade; o que importa é onde
+// cada um está com 375 sorteadas.
+const TAXA = 0.70, UNIVERSO = 0.60, MAX = 2000, N375 = 375;
+const X0 = 150, X1 = 1040, Y0 = 520, Y1 = 150;
+let YMIN = 0, YMAX = 1;
 const px = (n) => X0 + (Math.log10(n) / Math.log10(MAX)) * (X1 - X0);
-const py = (t) => Y0 - t * (Y0 - Y1);
+const py = (t) => Y0 - ((t - YMIN) / (YMAX - YMIN)) * (Y0 - Y1);
 const CORES = ["#e50505", "#404040", "#9a9a9a"];
 const series = [9, 36, 13].map((s) => {
   const r = semente(s); let g = 0; const taxas = [], sorteios = [];
   for (let i = 1; i <= MAX; i++) { const v = r() < TAXA; sorteios.push(v); g += v; taxas.push(g / i); }
   return {taxas, sorteios};
 });
+let mil = null;
+function simularMil() {
+  if (mil) return mil;
+  const r = semente(2024), N = 15975, K = 11183; mil = [];
+  for (let s = 0; s < 1000; s++) {
+    let w = K, t = N, g = 0; const a = new Float32Array(MAX);
+    for (let i = 0; i < MAX; i++) { if (r() < w / t) { g++; w--; } t--; a[i] = g / (i + 1); }
+    mil.push(a);
+  }
+  return mil;
+}
 
-const CENARIOS = {lei: {rotulo: "sorteios", passos: [
-  {ns: [0, 0, 0], fala: "Uma lista de decisões em que o passageiro ganha 70%. Vamos sortear decisões, uma por uma, e acompanhar a taxa de vitória da amostra."},
-  {ns: [10, 0, 0], fala: "Com 10 sorteadas, cada decisão vale 10 pontos: a taxa pula muito."},
-  {ns: [100, 0, 0], fala: "Com 100, a taxa ainda oscila, mas já fica perto dos 70%."},
-  {ns: [MAX, 0, 0], fala: "Com 2.000, quase não sai dos 70%."},
-  {ns: [MAX, MAX, MAX], fala: "Outros dois sorteios começam diferentes e chegam ao mesmo lugar. É a lei dos grandes números: quanto mais sorteadas, mais perto da taxa da lista."},
-  {ns: [MAX, MAX, MAX], faixa: true, fala: "Com 375 sorteadas, a taxa da amostra fica a até 5 pontos da taxa da lista em 95% dos sorteios. É o 375 da tabela de tamanho de amostra."},
-  {ns: [MAX, MAX, MAX], faixa: true, universo: true, fala: "Mas a amostra chega à taxa da lista, e não à do universo. Se a lista deixa casos de fora e o universo tem 60%, o sorteio chega com precisão ao número errado."},
-]}};
+const CENARIOS = {
+  lei: {rotulo: "três sorteios", passos: [
+    {ns: [0, 0, 0], fala: "Uma lista de decisões em que o passageiro ganha 70%. Vamos sortear decisões, uma por uma, e acompanhar a taxa de vitória da amostra."},
+    {ns: [10, 0, 0], fala: "Com 10 sorteadas, cada decisão vale 10 pontos: a taxa pula muito."},
+    {ns: [100, 0, 0], fala: "Com 100, a taxa ainda oscila, mas já fica perto dos 70%."},
+    {ns: [MAX, 0, 0], fala: "Com 2.000, quase não sai dos 70%."},
+    {ns: [MAX, MAX, MAX], fala: "Outros dois sorteios começam diferentes e chegam ao mesmo lugar. É a lei dos grandes números: quanto mais sorteadas, mais perto da taxa da lista."},
+    {ns: [MAX, MAX, MAX], faixa: true, fala: "Com 375 sorteadas, a taxa da amostra fica a até 5 pontos da taxa da lista em pelo menos 95% dos sorteios. É o 375 da tabela de tamanho de amostra."},
+    {ns: [MAX, MAX, MAX], faixa: true, universo: true, fala: "Mas a amostra chega à taxa da lista, e não à do universo. Se a lista deixa casos de fora e o universo tem 60%, o sorteio chega com precisão ao número errado."},
+  ]},
+  mil: {rotulo: "mil sorteios", passos: [
+    {fala: "Agora, mil sorteios diferentes da mesma lista de 15.975 decisões, com 70% de vitória. Cada linha cinza é um sorteio, de 30 até 2.000 decisões."},
+    {faixa: true, hist: true, fala: ""},
+    {faixa: true, hist: true, fora: true, fala: ""},
+  ]},
+};
 
+const tela = $("tela"), ctx = tela.getContext("2d");
+tela.width = 2560; tela.height = 1440; ctx.scale(2, 2);
 const svg = $("grafico");
-// eixos
-el("line", {x1: X0, y1: Y0, x2: X1, y2: Y0, stroke: "#333", "stroke-width": 1.5}, svg);
-el("line", {x1: X0, y1: Y0, x2: X0, y2: Y1 - 10, stroke: "#333", "stroke-width": 1.5}, svg);
-for (const [n, r] of [[1, "1"], [10, "10"], [100, "100"], [375, "375"], [1000, "1.000"], [2000, "2.000"]]) {
-  el("line", {x1: px(n), y1: Y0, x2: px(n), y2: Y0 + 8, stroke: "#333"}, svg);
-  txt(r, {x: px(n), y: Y0 + 32, "text-anchor": "middle", "font-size": 20}, svg);
-}
-txt("decisões sorteadas (escala log)", {x: (X0 + X1) / 2, y: Y0 + 62, "text-anchor": "middle", "font-size": 20, fill: "#555"}, svg);
-for (const t of [0, 0.5, 1]) {
-  txt(`${t * 100}%`, {x: X0 - 14, y: py(t) + 7, "text-anchor": "end", "font-size": 20}, svg);
-  el("line", {x1: X0 - 6, y1: py(t), x2: X0, y2: py(t), stroke: "#333"}, svg);
-}
-const faixa = el("rect", {x: X0, y: py(0.75), width: X1 - X0, height: py(0.65) - py(0.75), fill: "#e50505", opacity: 0}, svg);
-const marca375 = el("line", {x1: px(375), y1: Y1 - 10, x2: px(375), y2: Y0, stroke: "#e50505", "stroke-width": 2, "stroke-dasharray": "6 5", opacity: 0}, svg);
-const rot375 = txt("70% ± 5 pontos", {x: px(375) - 10, y: py(0.75) - 10, "text-anchor": "end", "font-size": 20, fill: "#b00000", opacity: 0}, svg);
-el("line", {x1: X0, y1: py(TAXA), x2: X1, y2: py(TAXA), stroke: "#000", "stroke-width": 1.5, "stroke-dasharray": "8 6"}, svg);
-txt("taxa na lista: 70%", {x: X1 + 14, y: py(TAXA) + 7, "font-size": 20, "font-weight": 600}, svg);
-const linhaU = el("line", {x1: X0, y1: py(UNIVERSO), x2: X1, y2: py(UNIVERSO), stroke: "#1f4e79", "stroke-width": 2.5, "stroke-dasharray": "3 5", opacity: 0}, svg);
-const rotU = txt("no universo: 60%", {x: X1 + 14, y: py(UNIVERSO) + 7, "font-size": 20, "font-weight": 600, fill: "#1f4e79", opacity: 0}, svg);
-const linhas = [2, 1, 0].map((i) => ({i, p: el("polyline", {fill: "none", stroke: CORES[i], "stroke-width": i ? 2.5 : 3.2, "stroke-linejoin": "round"}, svg)}))
-  .sort((a, b) => a.i - b.i).map((o) => o.p);
-const fichas = el("g", {}, svg);
-const contador = txt("", {x: X0 + 20, y: Y1 - 18, "font-size": 22, "font-weight": 600}, svg);
+const eixos = el("g", {}, svg);
+const camada = el("g", {}, svg);
+let faixa, marca375, rot375, linhaU, rotU, rotLista, linhas, fichas, contador, hist;
 
+function montar() {
+  eixos.replaceChildren(); camada.replaceChildren();
+  el("line", {x1: X0, y1: Y0, x2: X1, y2: Y0, stroke: "#333", "stroke-width": 1.5}, eixos);
+  el("line", {x1: X0, y1: Y0, x2: X0, y2: Y1 - 10, stroke: "#333", "stroke-width": 1.5}, eixos);
+  for (const [n, r] of [[1, "1"], [10, "10"], [100, "100"], [375, "375"], [1000, "1.000"], [2000, "2.000"]]) {
+    el("line", {x1: px(n), y1: Y0, x2: px(n), y2: Y0 + 8, stroke: "#333"}, eixos);
+    txt(r, {x: px(n), y: Y0 + 32, "text-anchor": "middle", "font-size": 20}, eixos);
+  }
+  txt("decisões sorteadas (escala log)", {x: (X0 + X1) / 2, y: Y0 + 62, "text-anchor": "middle", "font-size": 20, fill: "#555"}, eixos);
+  const marcas = YMIN === 0 ? [0, 0.5, 1] : [0.5, 0.6, 0.7, 0.8, 0.9];
+  for (const t of marcas) {
+    txt(`${Math.round(t * 100)}%`, {x: X0 - 14, y: py(t) + 7, "text-anchor": "end", "font-size": 20}, eixos);
+    el("line", {x1: X0 - 6, y1: py(t), x2: X0, y2: py(t), stroke: "#333"}, eixos);
+  }
+  faixa = el("rect", {x: X0, y: py(0.75), width: X1 - X0, height: py(0.65) - py(0.75), fill: "#e50505", opacity: 0}, camada);
+  marca375 = el("line", {x1: px(N375), y1: Y1 - 10, x2: px(N375), y2: Y0, stroke: "#e50505", "stroke-width": 2, "stroke-dasharray": "6 5", opacity: 0}, camada);
+  rot375 = txt("70% ± 5 pontos", {x: px(N375) - 10, y: py(0.75) - 10, "text-anchor": "end", "font-size": 20, fill: "#b00000", opacity: 0}, camada);
+  el("line", {x1: X0, y1: py(TAXA), x2: X1, y2: py(TAXA), stroke: "#000", "stroke-width": 1.5, "stroke-dasharray": "8 6"}, camada);
+  rotLista = txt("taxa na lista: 70%", {x: X1 + 14, y: py(TAXA) + 7, "font-size": 20, "font-weight": 600}, camada);
+  linhaU = el("line", {x1: X0, y1: py(UNIVERSO), x2: X1, y2: py(UNIVERSO), stroke: "#1f4e79", "stroke-width": 2.5, "stroke-dasharray": "3 5", opacity: 0}, camada);
+  rotU = txt("no universo: 60%", {x: X1 + 14, y: py(UNIVERSO) + 7, "font-size": 20, "font-weight": 600, fill: "#1f4e79", opacity: 0}, camada);
+  linhas = [0, 1, 2].map((i) => el("polyline", {fill: "none", stroke: CORES[i], "stroke-width": i ? 2.5 : 3.2, "stroke-linejoin": "round"}, camada));
+  linhas.slice().reverse().forEach((l) => camada.appendChild(l)); // vermelho por cima
+  fichas = el("g", {}, camada);
+  contador = txt("", {x: X0 + 20, y: Y1 - 18, "font-size": 22, "font-weight": 600}, camada);
+  hist = el("g", {}, camada);
+}
+
+window.preparar = (nome) => {
+  [YMIN, YMAX] = nome === "mil" ? [0.5, 0.9] : [0, 1];
+  montar();
+  ctx.clearRect(0, 0, 1280, 720);
+  atuais = [0, 0, 0];
+  if (nome === "mil") { rotLista.setAttribute("opacity", 0); simularMil(); }
+};
+
+// ---------- cenário 1 ----------
 let atuais = [0, 0, 0], quadro = null;
 function pintar(ns) {
   ns.forEach((n, k) => {
@@ -168,32 +209,90 @@ function pintar(ns) {
     const g = Math.round(series[0].taxas[n - 1] * n);
     contador.textContent = `sorteio em vermelho: ${n.toLocaleString("pt-BR")} sorteadas, ganhou ${g.toLocaleString("pt-BR")}: ${Math.round(100 * g / n)}%`;
   }
-  // as primeiras 10 decisões, uma ficha cada
   fichas.replaceChildren();
-  if (n > 0 && n <= 10) series[0].sorteios.slice(0, n).forEach((v, i) => {
-    el("rect", {x: 640 + i * 42, y: 175, width: 34, height: 34, rx: 4, fill: v ? "#e50505" : "#fff", stroke: "#e50505", "stroke-width": 2}, fichas);
-    txt(v ? "G" : "P", {x: 657 + i * 42, y: 199, "text-anchor": "middle", "font-size": 18, "font-weight": 700, fill: v ? "#fff" : "#e50505"}, fichas);
-  });
-  if (n > 0 && n <= 10) txt("G: o passageiro ganhou · P: perdeu", {x: 640, y: 236, "font-size": 18, fill: "#555"}, fichas);
+  if (n > 0 && n <= 10) {
+    series[0].sorteios.slice(0, n).forEach((v, i) => {
+      el("rect", {x: 640 + i * 42, y: 175, width: 34, height: 34, rx: 4, fill: v ? "#e50505" : "#fff", stroke: "#e50505", "stroke-width": 2}, fichas);
+      txt(v ? "G" : "P", {x: 657 + i * 42, y: 199, "text-anchor": "middle", "font-size": 18, "font-weight": 700, fill: v ? "#fff" : "#e50505"}, fichas);
+    });
+    txt("G: o passageiro ganhou · P: perdeu", {x: 640, y: 236, "font-size": 18, fill: "#555"}, fichas);
+  }
 }
-function desenhar(p, animar) {
-  cancelAnimationFrame(quadro);
-  const opac = (no, v) => { no.style.transition = animar ? "opacity .6s" : "none"; no.setAttribute("opacity", v); };
-  opac(faixa, p.faixa ? 0.14 : 0); opac(marca375, p.faixa ? 1 : 0); opac(rot375, p.faixa ? 1 : 0);
-  opac(linhaU, p.universo ? 1 : 0); opac(rotU, p.universo ? 1 : 0);
+const opac = (no, v, animar) => { no.style.transition = animar ? "opacity .6s" : "none"; no.setAttribute("opacity", v); };
+
+function desenharLei(p, animar) {
+  opac(faixa, p.faixa ? 0.14 : 0, animar); opac(marca375, p.faixa ? 1 : 0, animar); opac(rot375, p.faixa ? 1 : 0, animar);
+  opac(linhaU, p.universo ? 1 : 0, animar); opac(rotU, p.universo ? 1 : 0, animar);
   const de = atuais.map((n, k) => (animar && p.ns[k] > n ? Math.max(n, 1) : p.ns[k]));
   if (!animar || de.every((n, k) => n === p.ns[k])) { atuais = p.ns.slice(); pintar(atuais); return; }
   const t0 = performance.now(), dur = p.ns[0] <= 10 ? 2200 : 2600;
   const passo = (t) => {
     const f = Math.min(1, (t - t0) / dur);
-    // cresce em escala log, como o eixo
     const ns = p.ns.map((alvo, k) => (alvo === de[k] ? alvo : Math.round(Math.pow(10, Math.log10(de[k]) + f * (Math.log10(alvo) - Math.log10(de[k]))))));
     if (p.ns[0] <= 10 && p.ns[0] !== de[0]) ns[0] = Math.max(1, Math.ceil(f * p.ns[0]));
     pintar(ns);
-    if (f < 1) quadro = requestAnimationFrame(passo); else atuais = p.ns.slice();
+    if (f < 1) quadro = requestAnimationFrame(passo);
   };
   atuais = p.ns.slice();
   quadro = requestAnimationFrame(passo);
+}
+
+// ---------- cenário 2 ----------
+function traco(a, cor, larg) {
+  ctx.strokeStyle = cor; ctx.lineWidth = larg; ctx.beginPath();
+  for (let i = 29; i < MAX; i += i < 60 ? 1 : i < 400 ? 2 : 6) {
+    const x = px(i + 1), y = py(a[i]);
+    i > 29 ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.stroke();
+}
+function recortar() { ctx.save(); ctx.beginPath(); ctx.rect(X0, Y1 - 10, X1 - X0 + 2, Y0 - Y1 + 10); ctx.clip(); }
+const foraDaFaixa = (a) => Math.abs(a[N375 - 1] - TAXA) > 0.05;
+
+function desenharHist(mostrar, destacar) {
+  hist.replaceChildren();
+  if (!mostrar) return;
+  const conta = new Map();
+  for (const a of mil) { const b = Math.floor(a[N375 - 1] * 100 + 1e-9); conta.set(b, (conta.get(b) || 0) + 1); }
+  const maior = Math.max(...conta.values()), HX = 1070, HW = 170;
+  txt("com 375 sorteadas", {x: HX, y: Y1 - 44, "font-size": 18, "font-weight": 700}, hist);
+  for (const [b, c] of conta) {
+    const fora = b < 65 || b >= 75, y0 = py((b + 1) / 100), h = py(b / 100) - y0;
+    if (y0 < Y1 - 12 || y0 + h > Y0) continue;
+    el("rect", {x: HX, y: y0 + 0.5, width: (HW * c) / maior, height: h - 1, fill: fora ? "#e50505" : "#8a8a8a", opacity: destacar || !fora ? 1 : 0.6}, hist);
+  }
+  const dentro = mil.filter((a) => !foraDaFaixa(a)).length;
+  txt(`${dentro} de 1.000 a até 5 pontos`, {x: HX, y: Y1 - 20, "font-size": 15, fill: "#333"}, hist);
+  return dentro;
+}
+
+function desenharMil(p, animar) {
+  opac(faixa, p.faixa ? 0.12 : 0, animar); opac(marca375, p.faixa ? 1 : 0, animar); opac(rot375, p.faixa ? 1 : 0, animar);
+  const dentro = desenharHist(p.hist, p.fora);
+  if (p.hist) {
+    passos[1].fala = `Com 375 sorteadas, ${dentro} dos 1.000 sorteios caem a até 5 pontos dos 70%. A maioria fica perto; alguns, um pouco acima ou um pouco abaixo.`;
+    passos[2].fala = `Estes ${1000 - dentro} caíram fora da faixa. Quem tirou um deles não tem como saber, olhando só a própria amostra. Por isso o resultado vem com margem e confiança.`;
+    $("narracao").textContent = passos[pos].fala;
+  }
+  const pintarTudo = (ate) => {
+    ctx.clearRect(0, 0, 1280, 720); recortar();
+    for (let s = 0; s < ate; s++) traco(mil[s], p.fora ? "rgba(0,0,0,0.035)" : "rgba(0,0,0,0.06)", 1);
+    if (p.fora) for (const a of mil) if (foraDaFaixa(a)) traco(a, "rgba(229,5,5,0.75)", 1.4);
+    ctx.restore();
+  };
+  if (!animar || p.hist) { pintarTudo(1000); return; }
+  const t0 = performance.now();
+  const passo = (t) => {
+    const f = Math.min(1, (t - t0) / 3000);
+    pintarTudo(Math.max(1, Math.round(1000 * f * f)));
+    if (f < 1) quadro = requestAnimationFrame(passo);
+  };
+  quadro = requestAnimationFrame(passo);
+}
+
+function desenhar(p, animar) {
+  cancelAnimationFrame(quadro);
+  if (cenario === "mil") desenharMil(p, animar); else desenharLei(p, animar);
 }
 
 </script>
