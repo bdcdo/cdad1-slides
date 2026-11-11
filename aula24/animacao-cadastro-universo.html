@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>O cadastro e o universo</title>
+<script>
+// Primeiro script: o visualizador de slides manda teclas por postMessage, e as que chegam antes de a
+// animação montar esperam nesta fila.
+window.filaTeclas = [];
+addEventListener("message", (e) => {
+  if (!e.data || e.data.tipo !== "tecla") return;
+  if (window.tratarTecla) window.tratarTecla(e.data.key);
+  else window.filaTeclas.push(e.data.key);
+});
+</script>
+<style>
+@font-face { font-family: "Inter"; src: url("../votacao/fontes/Inter.woff2") format("woff2"); font-weight: 100 900; }
+:root { --verm: #e50505; --cinza: #f2f2f2; --texto: #1a1a1a; --apoio: #555; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #26282c; overflow: hidden; font-family: Inter, Arial, sans-serif; color: var(--texto); }
+#moldura { position: absolute; left: 0; top: 0; width: 1280px; height: 776px; transform-origin: top left; }
+#palco { position: relative; width: 1280px; height: 720px; background: #fff; overflow: hidden; }
+#titulo { position: absolute; left: 48px; top: 26px; margin: 0; font-size: 34px; font-weight: 700; }
+#titulo::after { content: ""; position: absolute; left: 0; top: 52px; width: 1184px; height: 1px; background: var(--verm); }
+#narracao { position: absolute; left: 48px; right: 48px; bottom: 20px; height: 104px; background: var(--cinza);
+  border-left: 6px solid var(--verm); padding: 8px 20px; font-size: 25px; line-height: 1.28; display: flex; align-items: center; }
+#controles { height: 56px; display: flex; gap: 10px; align-items: center; justify-content: center; color: #f2f2f2; font-size: 16px; }
+#controles button { font: inherit; background: #3d3f45; color: #fff; border: 2px solid #8a8d95; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
+#controles button[aria-pressed="true"] { background: #f2f2f2; color: #111; }
+#progresso { min-width: 6em; text-align: center; font-variant-numeric: tabular-nums; }
+svg text { font-family: Inter, Arial, sans-serif; }
+html.cheio, html.cheio body, html.embutido, html.embutido body { background: #fff; }
+html.cheio #controles, html.embutido #controles { display: none; }
+html.cheio #moldura, html.embutido #moldura { height: 720px; }
+html.embutido #titulo, html.embutido #narracao { display: none; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.pt { transition: fill .5s, stroke .5s, r .4s, opacity .5s, stroke-width .4s; }
+.pt.u { fill: #fff; stroke: #666; stroke-width: 1.6; }
+.pt.f { fill: #d4d4d4; stroke: #b4b4b4; stroke-width: 1; }
+.pt.c { fill: #e50505; stroke: #e50505; stroke-width: 1.6; }
+.pt.s { stroke: #000; stroke-width: 3.5; r: 9; }
+.pt.apagado { opacity: .35; }
+.anima { transition: width .7s; }
+html.sem-transicao .pt, html.sem-transicao .anima { transition: none !important; }
+</style>
+</head>
+<body>
+<div id="moldura">
+  <div id="palco">
+    <h1 id="titulo">O cadastro e o universo</h1>
+    <svg id="desenho" viewBox="0 0 1280 720" width="1280" height="720" style="position:absolute;left:0;top:0"></svg>
+    <div id="narracao" aria-live="polite"></div>
+  </div>
+  <div id="controles">
+    <span id="cenarios"></span>
+    <button id="voltar" title="Passo anterior (←)">◀</button>
+    <span id="progresso"></span>
+    <button id="avancar" title="Próximo passo (→)">▶</button>
+  </div>
+</div>
+<script>
+// Protocolo com ver.html (README do repositório, "Animações dentro do deck"):
+// recebe {tipo: "tecla", key} e responde {tipo: "animacao", pos, total} a cada passo.
+// ?embutido=cheio esconde só os controles; ?embutido esconde também título e narração.
+const embutido = new URLSearchParams(location.search).get("embutido");
+if (embutido === "cheio") document.documentElement.classList.add("cheio");
+else if (embutido !== null) document.documentElement.classList.add("embutido");
+const $ = (id) => document.getElementById(id);
+
+function ajustar() {
+  const m = $("moldura"), h = m.offsetHeight;
+  const e = Math.min(innerWidth / 1280, innerHeight / h);
+  m.style.transform = `translate(${(innerWidth - 1280 * e) / 2}px, ${(innerHeight - h * e) / 2}px) scale(${e})`;
+}
+addEventListener("resize", ajustar);
+
+// Cada animação define CENARIOS = {nome: {rotulo, passos: [{fala, ...}]}} e desenhar(passo, animar).
+let cenario, passos, pos = 0;
+function avisar() { if (parent !== window) parent.postMessage({tipo: "animacao", pos, total: passos.length}, "*"); }
+function ir(n, animar) {
+  pos = Math.max(0, Math.min(passos.length - 1, n));
+  desenhar(passos[pos], animar, pos);
+  $("narracao").textContent = passos[pos].fala;
+  $("progresso").textContent = `${pos + 1} / ${passos.length}`;
+  avisar();
+}
+function trocarCenario(nome) {
+  cenario = nome; passos = CENARIOS[nome].passos;
+  document.querySelectorAll("#cenarios button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.c === nome));
+  if (location.hash.slice(1) !== nome) history.replaceState(null, "", "#" + nome);
+  window.preparar?.(nome);
+  ir(0, false);
+}
+window.tratarTecla = (k) => {
+  if (k === "ArrowRight" || k === "PageDown") { if (pos < passos.length - 1) ir(pos + 1, true); }
+  else if (k === "ArrowLeft" || k === "PageUp") ir(pos - 1, false);
+  else if (k === "Home") ir(0, false);
+  else if (k === "End") ir(passos.length - 1, false);
+  else if (k === " ") ir(pos, true);
+  else if (/^[1-9]$/.test(k) && Object.keys(CENARIOS)[k - 1]) trocarCenario(Object.keys(CENARIOS)[k - 1]);
+};
+addEventListener("keydown", (e) => {
+  const mapa = ["ArrowRight", "PageDown", "ArrowLeft", "PageUp", "Home", "End", " "];
+  if (mapa.includes(e.key) || /^[1-9]$/.test(e.key)) { e.preventDefault(); window.tratarTecla(e.key); }
+});
+$("avancar").onclick = () => window.tratarTecla("ArrowRight");
+$("voltar").onclick = () => window.tratarTecla("ArrowLeft");
+// Gerador pseudoaleatório com semente: o mesmo sorteio a cada vez que a página abre.
+function semente(s) { return () => { s |= 0; s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const NS = "http://www.w3.org/2000/svg";
+function el(nome, attrs = {}, pai) { const n = document.createElementNS(NS, nome); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (pai) pai.appendChild(n); return n; }
+function txt(t, attrs, pai) { const n = el("text", attrs, pai); n.textContent = t; return n; }
+</script>
+<script>
+// O cadastro e o universo. Pontos ilustrativos (não são os dados da coleta): 240 ações no universo,
+// 160 com sentença e 80 paradas sem sentença, e 120 ações fora do tema que uma busca pode trazer.
+// Cada busca é um conjunto de pontos; cobertura e precisão saem da contagem dos pontos.
+const r = semente(1417), R = 6.5;
+const pontos = [];
+function grade(x0, y0, w, h, cols, linhas, n, base) {
+  const cw = w / cols, ch = h / linhas, celulas = [];
+  for (let i = 0; i < cols * linhas; i++) celulas.push(i);
+  for (let i = celulas.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [celulas[i], celulas[j]] = [celulas[j], celulas[i]]; }
+  return celulas.slice(0, n).map((c) => ({...base,
+    x: x0 + (c % cols + 0.5 + (r() - 0.5) * 0.5) * cw, y: y0 + (Math.floor(c / cols) + 0.5 + (r() - 0.5) * 0.5) * ch}));
+}
+// com sentença: 70 usam "atraso de voo"; 25 escrevem "vôo"; 65 falam só de cancelamento (40 deles têm as duas palavras)
+const com = grade(268, 160, 404, 400, 16, 13, 160, {u: true, sent: true});
+com.forEach((p, i) => { p.tipo = i < 70 ? "exato" : i < 95 ? "acento" : "cancel"; p.palavras = p.tipo === "exato" || (p.tipo === "cancel" && i < 135); });
+const sem = grade(700, 160, 200, 400, 7, 13, 80, {u: true, sent: false});
+const fora = grade(40, 160, 180, 400, 7, 15, 120, {u: false, sent: true});
+fora.forEach((p, i) => { p.palavras = i < 70; });
+[...com, ...sem].forEach((p) => { p.assunto = r() < 0.85; });
+fora.forEach((p, i) => { p.assunto = i >= 60 && i < 80; });
+pontos.push(...fora, ...com, ...sem);
+
+const BUSCAS = {
+  nada: {nome: "", f: () => false},
+  aspas: {nome: '"atraso de voo", com aspas', f: (p) => p.sent && p.u && p.tipo === "exato"},
+  semAspas: {nome: "atraso de voo, sem aspas", f: (p) => p.sent && p.palavras},
+  assunto: {nome: "assunto 4829, nas sentenças", f: (p) => p.sent && p.assunto},
+  datajud: {nome: "DataJud, assunto 4829", f: (p) => p.assunto},
+};
+const sorteadas = (busca, n, s) => { const rr = semente(s); const c = pontos.filter(BUSCAS[busca].f);
+  for (let i = c.length - 1; i > 0; i--) { const j = Math.floor(rr() * (i + 1)); [c[i], c[j]] = [c[j], c[i]]; } return new Set(c.slice(0, n)); };
+
+const CENARIOS = {
+  cadastro: {rotulo: "cadastro", passos: [
+    {busca: "nada", fala: "O universo: todas as ações de atraso e cancelamento de voo. Parte já tem sentença; parte está parada, sem sentença. À esquerda, ações de outros temas."},
+    {busca: "aspas", fala: 'O cadastro é o que a busca devolve. Com "atraso de voo" entre aspas, quase tudo é do tema, mas fica de fora quem escreveu "vôo", quem só fala em cancelamento e quem não tem sentença.'},
+    {busca: "aspas", sorteio: 20, fala: "A amostra sai do cadastro. Quem ficou fora dele nunca é sorteado, por maior que seja a amostra: é aqui que mora o viés de seleção."},
+  ]},
+  buscas: {rotulo: "buscas", passos: [
+    {busca: "aspas", fala: 'Com aspas: preciso, mas alcança pouco do universo.'},
+    {busca: "semAspas", fala: "Sem aspas, basta ter as duas palavras: alcança mais do universo, mas traz muita ação que não é de atraso de voo."},
+    {busca: "assunto", fala: "Pelo assunto, nas sentenças: não depende da grafia e alcança mais. Ainda não vê os processos sem sentença."},
+    {busca: "datajud", fala: "No DataJud, pelo assunto: alcança também os processos parados. O preço: só desde 2020, sem o texto, e o ruído do assunto."},
+  ]},
+};
+
+const svg = $("desenho");
+el("rect", {x: 250, y: 140, width: 664, height: 440, rx: 14, fill: "#f2f2f2", stroke: "#8a8a8a", "stroke-width": 2}, svg);
+el("line", {x1: 686, y1: 140, x2: 686, y2: 580, stroke: "#9a9a9a", "stroke-width": 2, "stroke-dasharray": "4 6"}, svg);
+txt("Universo", {x: 262, y: 128, "font-size": 24, "font-weight": 700}, svg);
+txt("com sentença", {x: 470, y: 128, "font-size": 19, fill: "#555", "text-anchor": "middle"}, svg);
+txt("sem sentença", {x: 800, y: 128, "font-size": 19, fill: "#555", "text-anchor": "middle"}, svg);
+txt("outros temas", {x: 130, y: 128, "font-size": 19, fill: "#555", "text-anchor": "middle"}, svg);
+for (const p of pontos) p.no = el("circle", {cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: R, class: p.u ? "pt u" : "pt f"}, svg);
+
+// painel de medidas, à direita
+const PX = 950;
+const rotBusca = txt("", {x: PX, y: 170, "font-size": 22, "font-weight": 700, fill: "#e50505"}, svg);
+const subBusca = txt("", {x: PX, y: 196, "font-size": 18, fill: "#555"}, svg);
+function barra(y, nome, ajuda) {
+  txt(nome, {x: PX, y, "font-size": 22, "font-weight": 700}, svg);
+  txt(ajuda, {x: PX, y: y + 24, "font-size": 16, fill: "#555"}, svg);
+  el("rect", {x: PX, y: y + 36, width: 280, height: 24, fill: "#eee"}, svg);
+  const b = el("rect", {x: PX, y: y + 36, width: 0, height: 24, fill: "#e50505", class: "anima"}, svg);
+  const v = txt("", {x: PX, y: y + 84, "font-size": 20}, svg);
+  return {b, v};
+}
+const cob = barra(226, "Cobertura", "quanto do universo a busca alcança");
+const pre = barra(344, "Precisão", "quanto do que ela traz é do tema");
+const leg = el("g", {}, svg);
+[["pt c", "na busca"], ["pt u", "do universo, fora da busca"], ["pt f", "outro tema, fora da busca"], ["pt c s", "sorteada"]].forEach(([c, t], i) => {
+  el("circle", {cx: PX + 8, cy: 462 + i * 25, r: R, class: c}, leg);
+  txt(t, {x: PX + 24, y: 468 + i * 25, "font-size": 17}, leg);
+});
+txt("Pontos ilustrativos, e não", {x: PX, y: 570, "font-size": 15, fill: "#555"}, svg);
+txt("os dados da coleta.", {x: PX, y: 588, "font-size": 15, fill: "#555"}, svg);
+
+function desenhar(p, animar) {
+  document.documentElement.classList.toggle("sem-transicao", !animar);
+  const f = BUSCAS[p.busca].f, s = p.sorteio ? sorteadas(p.busca, p.sorteio, 7) : new Set();
+  let naBusca = 0, doTema = 0;
+  for (const q of pontos) {
+    const dentro = f(q);
+    naBusca += dentro; doTema += dentro && q.u;
+    q.no.setAttribute("class", "pt " + (dentro ? "c" : q.u ? "u" : "f") + (s.has(q) ? " s" : "") + (p.sorteio && dentro && !s.has(q) ? " apagado" : ""));
+    q.no.style.transitionDelay = animar ? (Math.random() * 0.5).toFixed(2) + "s" : "0s";
+  }
+  const U = pontos.filter((q) => q.u).length;
+  rotBusca.textContent = BUSCAS[p.busca].nome;
+  subBusca.textContent = naBusca ? `a busca devolve ${naBusca} ações` : "";
+  const fc = naBusca ? doTema / U : 0, fp = naBusca ? doTema / naBusca : 0;
+  cob.b.style.width = 280 * fc + "px"; pre.b.style.width = 280 * fp + "px";
+  cob.v.textContent = naBusca ? `${doTema} de ${U}: ${Math.round(100 * fc)}%` : "";
+  pre.v.textContent = naBusca ? `${doTema} de ${naBusca}: ${Math.round(100 * fp)}%` : "";
+  if (p.sorteio) subBusca.textContent = `sorteio de ${p.sorteio} ações do cadastro`;
+  if (!animar) void svg.getBoundingClientRect(), setTimeout(() => document.documentElement.classList.remove("sem-transicao"), 30);
+}
+
+</script>
+<script>
+for (const [i, nome] of Object.keys(CENARIOS).entries()) {
+  const b = document.createElement("button"); b.dataset.c = nome; b.textContent = `${i + 1} ${CENARIOS[nome].rotulo}`;
+  b.onclick = () => trocarCenario(nome); $("cenarios").appendChild(b);
+}
+ajustar();
+trocarCenario(CENARIOS[location.hash.slice(1)] ? location.hash.slice(1) : Object.keys(CENARIOS)[0]);
+addEventListener("hashchange", () => { const h = location.hash.slice(1); if (CENARIOS[h] && h !== cenario) trocarCenario(h); });
+for (const k of window.filaTeclas.splice(0)) window.tratarTecla(k);
+</script>
+</body>
+</html>

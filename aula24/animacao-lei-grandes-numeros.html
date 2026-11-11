@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lei dos grandes números</title>
+<script>
+// Primeiro script: o visualizador de slides manda teclas por postMessage, e as que chegam antes de a
+// animação montar esperam nesta fila.
+window.filaTeclas = [];
+addEventListener("message", (e) => {
+  if (!e.data || e.data.tipo !== "tecla") return;
+  if (window.tratarTecla) window.tratarTecla(e.data.key);
+  else window.filaTeclas.push(e.data.key);
+});
+</script>
+<style>
+@font-face { font-family: "Inter"; src: url("../votacao/fontes/Inter.woff2") format("woff2"); font-weight: 100 900; }
+:root { --verm: #e50505; --cinza: #f2f2f2; --texto: #1a1a1a; --apoio: #555; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #26282c; overflow: hidden; font-family: Inter, Arial, sans-serif; color: var(--texto); }
+#moldura { position: absolute; left: 0; top: 0; width: 1280px; height: 776px; transform-origin: top left; }
+#palco { position: relative; width: 1280px; height: 720px; background: #fff; overflow: hidden; }
+#titulo { position: absolute; left: 48px; top: 26px; margin: 0; font-size: 34px; font-weight: 700; }
+#titulo::after { content: ""; position: absolute; left: 0; top: 52px; width: 1184px; height: 1px; background: var(--verm); }
+#narracao { position: absolute; left: 48px; right: 48px; bottom: 20px; height: 104px; background: var(--cinza);
+  border-left: 6px solid var(--verm); padding: 8px 20px; font-size: 25px; line-height: 1.28; display: flex; align-items: center; }
+#controles { height: 56px; display: flex; gap: 10px; align-items: center; justify-content: center; color: #f2f2f2; font-size: 16px; }
+#controles button { font: inherit; background: #3d3f45; color: #fff; border: 2px solid #8a8d95; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
+#controles button[aria-pressed="true"] { background: #f2f2f2; color: #111; }
+#progresso { min-width: 6em; text-align: center; font-variant-numeric: tabular-nums; }
+svg text { font-family: Inter, Arial, sans-serif; }
+html.cheio, html.cheio body, html.embutido, html.embutido body { background: #fff; }
+html.cheio #controles, html.embutido #controles { display: none; }
+html.cheio #moldura, html.embutido #moldura { height: 720px; }
+html.embutido #titulo, html.embutido #narracao { display: none; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+</style>
+</head>
+<body>
+<div id="moldura">
+  <div id="palco">
+    <h1 id="titulo">Lei dos grandes números</h1>
+    <svg id="grafico" viewBox="0 0 1280 720" width="1280" height="720" style="position:absolute;left:0;top:0"></svg>
+    <div id="narracao" aria-live="polite"></div>
+  </div>
+  <div id="controles">
+    <span id="cenarios"></span>
+    <button id="voltar" title="Passo anterior (←)">◀</button>
+    <span id="progresso"></span>
+    <button id="avancar" title="Próximo passo (→)">▶</button>
+  </div>
+</div>
+<script>
+// Protocolo com ver.html (README do repositório, "Animações dentro do deck"):
+// recebe {tipo: "tecla", key} e responde {tipo: "animacao", pos, total} a cada passo.
+// ?embutido=cheio esconde só os controles; ?embutido esconde também título e narração.
+const embutido = new URLSearchParams(location.search).get("embutido");
+if (embutido === "cheio") document.documentElement.classList.add("cheio");
+else if (embutido !== null) document.documentElement.classList.add("embutido");
+const $ = (id) => document.getElementById(id);
+
+function ajustar() {
+  const m = $("moldura"), h = m.offsetHeight;
+  const e = Math.min(innerWidth / 1280, innerHeight / h);
+  m.style.transform = `translate(${(innerWidth - 1280 * e) / 2}px, ${(innerHeight - h * e) / 2}px) scale(${e})`;
+}
+addEventListener("resize", ajustar);
+
+// Cada animação define CENARIOS = {nome: {rotulo, passos: [{fala, ...}]}} e desenhar(passo, animar).
+let cenario, passos, pos = 0;
+function avisar() { if (parent !== window) parent.postMessage({tipo: "animacao", pos, total: passos.length}, "*"); }
+function ir(n, animar) {
+  pos = Math.max(0, Math.min(passos.length - 1, n));
+  desenhar(passos[pos], animar, pos);
+  $("narracao").textContent = passos[pos].fala;
+  $("progresso").textContent = `${pos + 1} / ${passos.length}`;
+  avisar();
+}
+function trocarCenario(nome) {
+  cenario = nome; passos = CENARIOS[nome].passos;
+  document.querySelectorAll("#cenarios button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.c === nome));
+  if (location.hash.slice(1) !== nome) history.replaceState(null, "", "#" + nome);
+  window.preparar?.(nome);
+  ir(0, false);
+}
+window.tratarTecla = (k) => {
+  if (k === "ArrowRight" || k === "PageDown") { if (pos < passos.length - 1) ir(pos + 1, true); }
+  else if (k === "ArrowLeft" || k === "PageUp") ir(pos - 1, false);
+  else if (k === "Home") ir(0, false);
+  else if (k === "End") ir(passos.length - 1, false);
+  else if (k === " ") ir(pos, true);
+  else if (/^[1-9]$/.test(k) && Object.keys(CENARIOS)[k - 1]) trocarCenario(Object.keys(CENARIOS)[k - 1]);
+};
+addEventListener("keydown", (e) => {
+  const mapa = ["ArrowRight", "PageDown", "ArrowLeft", "PageUp", "Home", "End", " "];
+  if (mapa.includes(e.key) || /^[1-9]$/.test(e.key)) { e.preventDefault(); window.tratarTecla(e.key); }
+});
+$("avancar").onclick = () => window.tratarTecla("ArrowRight");
+$("voltar").onclick = () => window.tratarTecla("ArrowLeft");
+// Gerador pseudoaleatório com semente: o mesmo sorteio a cada vez que a página abre.
+function semente(s) { return () => { s |= 0; s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const NS = "http://www.w3.org/2000/svg";
+function el(nome, attrs = {}, pai) { const n = document.createElementNS(NS, nome); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (pai) pai.appendChild(n); return n; }
+function txt(t, attrs, pai) { const n = el("text", attrs, pai); n.textContent = t; return n; }
+</script>
+<script>
+// Lei dos grandes números: a taxa de vitória de uma amostra sorteada de uma lista em que o
+// passageiro ganha 70%, conforme a amostra cresce. Três sorteios com semente fixa.
+const TAXA = 0.70, UNIVERSO = 0.60, MAX = 2000;
+const X0 = 150, X1 = 1040, Y0 = 520, Y1 = 150; // área do gráfico no palco
+const px = (n) => X0 + (Math.log10(n) / Math.log10(MAX)) * (X1 - X0);
+const py = (t) => Y0 - t * (Y0 - Y1);
+const CORES = ["#e50505", "#404040", "#9a9a9a"];
+const series = [9, 36, 13].map((s) => {
+  const r = semente(s); let g = 0; const taxas = [], sorteios = [];
+  for (let i = 1; i <= MAX; i++) { const v = r() < TAXA; sorteios.push(v); g += v; taxas.push(g / i); }
+  return {taxas, sorteios};
+});
+
+const CENARIOS = {lei: {rotulo: "sorteios", passos: [
+  {ns: [0, 0, 0], fala: "Uma lista de decisões em que o passageiro ganha 70%. Vamos sortear decisões, uma por uma, e acompanhar a taxa de vitória da amostra."},
+  {ns: [10, 0, 0], fala: "Com 10 sorteadas, cada decisão vale 10 pontos: a taxa pula muito."},
+  {ns: [100, 0, 0], fala: "Com 100, a taxa ainda oscila, mas já fica perto dos 70%."},
+  {ns: [MAX, 0, 0], fala: "Com 2.000, quase não sai dos 70%."},
+  {ns: [MAX, MAX, MAX], fala: "Outros dois sorteios começam diferentes e chegam ao mesmo lugar. É a lei dos grandes números: quanto mais sorteadas, mais perto da taxa da lista."},
+  {ns: [MAX, MAX, MAX], faixa: true, fala: "Com 375 sorteadas, a taxa da amostra fica a até 5 pontos da taxa da lista em 95% dos sorteios. É o 375 da tabela de tamanho de amostra."},
+  {ns: [MAX, MAX, MAX], faixa: true, universo: true, fala: "Mas a amostra chega à taxa da lista, e não à do universo. Se a lista deixa casos de fora e o universo tem 60%, o sorteio chega com precisão ao número errado."},
+]}};
+
+const svg = $("grafico");
+// eixos
+el("line", {x1: X0, y1: Y0, x2: X1, y2: Y0, stroke: "#333", "stroke-width": 1.5}, svg);
+el("line", {x1: X0, y1: Y0, x2: X0, y2: Y1 - 10, stroke: "#333", "stroke-width": 1.5}, svg);
+for (const [n, r] of [[1, "1"], [10, "10"], [100, "100"], [375, "375"], [1000, "1.000"], [2000, "2.000"]]) {
+  el("line", {x1: px(n), y1: Y0, x2: px(n), y2: Y0 + 8, stroke: "#333"}, svg);
+  txt(r, {x: px(n), y: Y0 + 32, "text-anchor": "middle", "font-size": 20}, svg);
+}
+txt("decisões sorteadas (escala log)", {x: (X0 + X1) / 2, y: Y0 + 62, "text-anchor": "middle", "font-size": 20, fill: "#555"}, svg);
+for (const t of [0, 0.5, 1]) {
+  txt(`${t * 100}%`, {x: X0 - 14, y: py(t) + 7, "text-anchor": "end", "font-size": 20}, svg);
+  el("line", {x1: X0 - 6, y1: py(t), x2: X0, y2: py(t), stroke: "#333"}, svg);
+}
+const faixa = el("rect", {x: X0, y: py(0.75), width: X1 - X0, height: py(0.65) - py(0.75), fill: "#e50505", opacity: 0}, svg);
+const marca375 = el("line", {x1: px(375), y1: Y1 - 10, x2: px(375), y2: Y0, stroke: "#e50505", "stroke-width": 2, "stroke-dasharray": "6 5", opacity: 0}, svg);
+const rot375 = txt("70% ± 5 pontos", {x: px(375) - 10, y: py(0.75) - 10, "text-anchor": "end", "font-size": 20, fill: "#b00000", opacity: 0}, svg);
+el("line", {x1: X0, y1: py(TAXA), x2: X1, y2: py(TAXA), stroke: "#000", "stroke-width": 1.5, "stroke-dasharray": "8 6"}, svg);
+txt("taxa na lista: 70%", {x: X1 + 14, y: py(TAXA) + 7, "font-size": 20, "font-weight": 600}, svg);
+const linhaU = el("line", {x1: X0, y1: py(UNIVERSO), x2: X1, y2: py(UNIVERSO), stroke: "#1f4e79", "stroke-width": 2.5, "stroke-dasharray": "3 5", opacity: 0}, svg);
+const rotU = txt("no universo: 60%", {x: X1 + 14, y: py(UNIVERSO) + 7, "font-size": 20, "font-weight": 600, fill: "#1f4e79", opacity: 0}, svg);
+const linhas = [2, 1, 0].map((i) => ({i, p: el("polyline", {fill: "none", stroke: CORES[i], "stroke-width": i ? 2.5 : 3.2, "stroke-linejoin": "round"}, svg)}))
+  .sort((a, b) => a.i - b.i).map((o) => o.p);
+const fichas = el("g", {}, svg);
+const contador = txt("", {x: X0 + 20, y: Y1 - 18, "font-size": 22, "font-weight": 600}, svg);
+
+let atuais = [0, 0, 0], quadro = null;
+function pintar(ns) {
+  ns.forEach((n, k) => {
+    const pts = [];
+    for (let i = 1; i <= n; i++) pts.push(`${px(i).toFixed(1)},${py(series[k].taxas[i - 1]).toFixed(1)}`);
+    linhas[k].setAttribute("points", pts.join(" "));
+  });
+  const n = Math.floor(ns[0]);
+  if (n === 0) contador.textContent = "";
+  else {
+    const g = Math.round(series[0].taxas[n - 1] * n);
+    contador.textContent = `sorteio em vermelho: ${n.toLocaleString("pt-BR")} sorteadas, ganhou ${g.toLocaleString("pt-BR")}: ${Math.round(100 * g / n)}%`;
+  }
+  // as primeiras 10 decisões, uma ficha cada
+  fichas.replaceChildren();
+  if (n > 0 && n <= 10) series[0].sorteios.slice(0, n).forEach((v, i) => {
+    el("rect", {x: 640 + i * 42, y: 175, width: 34, height: 34, rx: 4, fill: v ? "#e50505" : "#fff", stroke: "#e50505", "stroke-width": 2}, fichas);
+    txt(v ? "G" : "P", {x: 657 + i * 42, y: 199, "text-anchor": "middle", "font-size": 18, "font-weight": 700, fill: v ? "#fff" : "#e50505"}, fichas);
+  });
+  if (n > 0 && n <= 10) txt("G: o passageiro ganhou · P: perdeu", {x: 640, y: 236, "font-size": 18, fill: "#555"}, fichas);
+}
+function desenhar(p, animar) {
+  cancelAnimationFrame(quadro);
+  const opac = (no, v) => { no.style.transition = animar ? "opacity .6s" : "none"; no.setAttribute("opacity", v); };
+  opac(faixa, p.faixa ? 0.14 : 0); opac(marca375, p.faixa ? 1 : 0); opac(rot375, p.faixa ? 1 : 0);
+  opac(linhaU, p.universo ? 1 : 0); opac(rotU, p.universo ? 1 : 0);
+  const de = atuais.map((n, k) => (animar && p.ns[k] > n ? Math.max(n, 1) : p.ns[k]));
+  if (!animar || de.every((n, k) => n === p.ns[k])) { atuais = p.ns.slice(); pintar(atuais); return; }
+  const t0 = performance.now(), dur = p.ns[0] <= 10 ? 2200 : 2600;
+  const passo = (t) => {
+    const f = Math.min(1, (t - t0) / dur);
+    // cresce em escala log, como o eixo
+    const ns = p.ns.map((alvo, k) => (alvo === de[k] ? alvo : Math.round(Math.pow(10, Math.log10(de[k]) + f * (Math.log10(alvo) - Math.log10(de[k]))))));
+    if (p.ns[0] <= 10 && p.ns[0] !== de[0]) ns[0] = Math.max(1, Math.ceil(f * p.ns[0]));
+    pintar(ns);
+    if (f < 1) quadro = requestAnimationFrame(passo); else atuais = p.ns.slice();
+  };
+  atuais = p.ns.slice();
+  quadro = requestAnimationFrame(passo);
+}
+
+</script>
+<script>
+for (const [i, nome] of Object.keys(CENARIOS).entries()) {
+  const b = document.createElement("button"); b.dataset.c = nome; b.textContent = `${i + 1} ${CENARIOS[nome].rotulo}`;
+  b.onclick = () => trocarCenario(nome); $("cenarios").appendChild(b);
+}
+ajustar();
+trocarCenario(CENARIOS[location.hash.slice(1)] ? location.hash.slice(1) : Object.keys(CENARIOS)[0]);
+addEventListener("hashchange", () => { const h = location.hash.slice(1); if (CENARIOS[h] && h !== cenario) trocarCenario(h); });
+for (const k of window.filaTeclas.splice(0)) window.tratarTecla(k);
+</script>
+</body>
+</html>
