@@ -32,6 +32,7 @@ O JavaScript do painel passa pelo lint de `eslint.config.mjs`: `npx --yes eslint
 - `ver.html?deck=aulaNN/aulaNN.pdf#N`: abre o deck na página N.
 - `aulaNN/`: o PDF da aula e as animações que ele referencia.
 - Aula ainda não dada pode estar publicada sem aparecer na página inicial: abre pelo endereço direto e entra em `aulas.json` depois da aula.
+- `aps2/aps2.pdf`: deck da sessão da fase 2 da APS (18/11/2026), com os slides que os grupos enviaram. Fora da página inicial; abre por `ver.html?deck=aps2/aps2.pdf`.
 - `pdfjs/`: pdf.js 6.3.289, da Mozilla, sob a licença Apache 2.0 em `pdfjs/LICENSE`. Fica no repositório para o site não depender de CDN.
 - `votacao/`: o painel de votação da tecla V, com a fonte Inter em `votacao/fontes/`. `uqr/`: o gerador de QR que ele usa, também no repositório para não depender de CDN.
 
