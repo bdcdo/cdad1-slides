@@ -124,5 +124,11 @@
   "data": "ter 10/11",
   "titulo": "O cliente novo e consultas ruins",
   "arquivo": "aula23/aula23.pdf"
+ },
+ {
+  "aula": "26",
+  "data": "qui 19/11",
+  "titulo": "Manipular a base em código (parte 1)",
+  "arquivo": "aula26/aula26.pdf"
  }
 ]
